@@ -2,9 +2,9 @@
 
 Versions follow the native Bearound SDK the plugin is built on.
 
-## 3.18.0 (unreleased)
+## 3.18.0
 
-First version, not yet published to npm. Built on the native Bearound SDK 3.18.0 for Android and iOS.
+First release. Built on the native Bearound SDK 3.18.0 for Android and iOS.
 
 - Promise-based JavaScript API with TypeScript types, exposed as
   `cordova.plugins.Bearound`.

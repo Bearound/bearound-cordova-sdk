@@ -19,7 +19,7 @@ NOT a template: do not copy its config.xml, its bundle id or its token handling.
    Node.js >= 20.17, CocoaPods installed. Report anything older instead of forcing it.
 
 2. Install:
-   `cordova plugin add https://github.com/Bearound/bearound-cordova-sdk.git`
+   `cordova plugin add @bearound/cordova-plugin`
    passing the three iOS usage-description variables
    (BEAROUND_BLUETOOTH_USAGE_DESCRIPTION,
    BEAROUND_LOCATION_WHEN_IN_USE_USAGE_DESCRIPTION,
