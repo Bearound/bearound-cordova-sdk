@@ -4,6 +4,9 @@ Versions follow the native Bearound SDK the plugin is built on.
 
 ## Unreleased
 
+- The npm package and plugin id are now `@bearound/cordova-sdk`, in line with the other
+  Bearound SDK packages. `@bearound/cordova-plugin` is replaced by it; the JavaScript API
+  (`cordova.plugins.Bearound`) is unchanged.
 - README reorganised on the model of the native SDK READMEs: what the SDK detects,
   recommended setup, support matrix, business token, encounter layer, Google Play review,
   background reliability, detection log and troubleshooting by symptom.

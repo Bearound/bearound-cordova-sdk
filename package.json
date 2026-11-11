@@ -1,7 +1,7 @@
 {
-  "name": "@bearound/cordova-plugin",
+  "name": "@bearound/cordova-sdk",
   "version": "3.18.0",
-  "description": "Bearound SDK for Cordova: BLE beacon detection, background sync and push on Android and iOS.",
+  "description": "Cordova SDK for Android and iOS: secure BLE beacon detection and indoor positioning by Bearound.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -38,7 +38,7 @@
     "LICENSE"
   ],
   "cordova": {
-    "id": "@bearound/cordova-plugin",
+    "id": "@bearound/cordova-sdk",
     "platforms": [
       "android",
       "ios"

@@ -1,4 +1,4 @@
-# Bearound Cordova: AI agent setup prompt
+# Bearound Cordova SDK: AI agent setup prompt
 
 Hover the block below and click the **copy icon** in its top-right corner to copy
 the prompt, then paste it into your AI coding agent (Claude Code, Cursor, Copilot, …)
@@ -6,7 +6,7 @@ with your app's repo open. The agent reads the [plugin README](./README.md) and 
 the full Android and iOS integration.
 
 ```text
-Integrate the Bearound Cordova plugin into this Apache Cordova app (Android + iOS).
+Integrate the Bearound Cordova SDK (a Cordova plugin) into this Apache Cordova app (Android + iOS).
 First READ the plugin README end to end
 (https://raw.githubusercontent.com/Bearound/bearound-cordova-sdk/main/README.md),
 especially "Installation", "Quick Start", "Permissions", "Background behavior" and
@@ -19,7 +19,7 @@ NOT a template: do not copy its config.xml, its bundle id or its token handling.
    Node.js >= 20.17, CocoaPods installed. Report anything older instead of forcing it.
 
 2. Install:
-   `cordova plugin add @bearound/cordova-plugin`
+   `cordova plugin add @bearound/cordova-sdk`
    passing the three iOS usage-description variables
    (BEAROUND_BLUETOOTH_USAGE_DESCRIPTION,
    BEAROUND_LOCATION_WHEN_IN_USE_USAGE_DESCRIPTION,
