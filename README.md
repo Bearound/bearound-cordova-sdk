@@ -83,11 +83,11 @@ installed for iOS builds.
 ## Installation
 
 ```bash
-cordova plugin add https://github.com/Bearound/bearound-cordova-sdk.git
+cordova plugin add @bearound/cordova-plugin
 ```
 
-To pin a version, append a tag or commit: `.../bearound-cordova-sdk.git#<ref>`. The plugin
-id is `@bearound/cordova-plugin`, which is the name to use with `cordova plugin rm`.
+To install straight from the repository instead of npm:
+`cordova plugin add https://github.com/Bearound/bearound-cordova-sdk.git#<tag or commit>`.
 
 ### Android
 
@@ -123,7 +123,7 @@ Set the permission texts your users will read. Apple reviews the wording against
 app does, so replace the generic defaults:
 
 ```bash
-cordova plugin add https://github.com/Bearound/bearound-cordova-sdk.git \
+cordova plugin add @bearound/cordova-plugin \
   --variable BEAROUND_BLUETOOTH_USAGE_DESCRIPTION="..." \
   --variable BEAROUND_LOCATION_WHEN_IN_USE_USAGE_DESCRIPTION="..." \
   --variable BEAROUND_LOCATION_ALWAYS_USAGE_DESCRIPTION="..."

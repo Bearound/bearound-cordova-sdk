@@ -17,6 +17,14 @@
     "bluetooth",
     "push"
   ],
+  "homepage": "https://github.com/Bearound/bearound-cordova-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/Bearound/bearound-cordova-sdk/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "types": "types/index.d.ts",
   "files": [
     "plugin.xml",
