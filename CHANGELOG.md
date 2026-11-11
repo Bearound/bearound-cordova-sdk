@@ -5,9 +5,10 @@ release may carry changes of the plugin alone.
 
 ## Unreleased
 
-- Agent prompt and README corrected after running the prompt on a blank app: step order,
-  a concrete place for the business token, the permission result fields, apps without
-  push, the foreground-service permission and the plugin versus native SDK version.
+- Agent prompt and README refined: step order, a pattern for the business token, the
+  permission result fields, apps without push and a versioning note.
+- Example app on Android: the location rows use the wording of the native Android
+  example.
 
 ## 3.18.2
 
@@ -52,9 +53,8 @@ First release. Published as `@bearound/cordova-sdk`. Built on the native Bearoun
   the native example apps, posted natively on both platforms.
 - `getPendingBatches`, the push-triggered scan event on iOS (`addPushScanListener`) and
   `preciseLocation` in the permission result.
-- `configure()` leaves a running scan alone when the configuration did not change, so a
-  relaunch in the background does not switch the scanner off (the React Native and
-  Flutter bridges stop and restart it on every call).
+- `configure()` keeps a running scan going when the configuration is unchanged, so a
+  relaunch in the background continues scanning.
 - `setErrorReportingEnabled`, `getDetectionReadiness` and the `adaptiveSamplingEnabled` and
   `collectMotionSensors` options, straight from the native SDKs.
 - Example Cordova app for Android and iOS, mirroring the native BeAroundScan examples.
