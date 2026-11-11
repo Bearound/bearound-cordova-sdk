@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        id="@bearound/cordova-plugin"
+        version="3.18.0">
+
+  <name>Bearound</name>
+  <description>Bearound SDK for Cordova: BLE beacon detection, background sync and push on Android and iOS.</description>
+  <license>MIT</license>
+  <keywords>cordova,bearound,beacon,ble,bluetooth,push</keywords>
+  <repo>https://github.com/Bearound/bearound-cordova-sdk.git</repo>
+
+  <engines>
+    <engine name="cordova" version=">=12.0.0" />
+    <engine name="cordova-android" version=">=14.0.0" />
+    <engine name="cordova-ios" version=">=8.0.0" />
+  </engines>
+
+  <js-module src="www/bearound.js" name="Bearound">
+    <clobbers target="cordova.plugins.Bearound" />
+  </js-module>
+
+  <!-- ===================================================================== -->
+  <!-- Android                                                               -->
+  <!-- ===================================================================== -->
+  <platform name="android">
+    <!-- Registers the plugin's FirebaseMessagingService (silent-push wake-up and rich
+         push with the app closed). Set to "false" when the app forwards FCM messages to
+         the SDK from its own native service. -->
+    <preference name="BEAROUND_FCM_SERVICE_ENABLED" default="true" />
+    <preference name="BEAROUND_FIREBASE_MESSAGING_VERSION" default="24.0.0" />
+
+    <config-file target="res/xml/config.xml" parent="/*">
+      <feature name="Bearound">
+        <param name="android-package" value="io.bearound.cordova.BearoundPlugin" />
+        <param name="onload" value="true" />
+      </feature>
+      <preference name="GradlePluginKotlinEnabled" value="true" />
+      <preference name="AndroidXEnabled" value="true" />
+    </config-file>
+
+    <config-file target="AndroidManifest.xml" parent="/manifest/application">
+      <!-- Runs at every process start, before any page loads: sets the SDK listener so
+           events from a process the OS woke up in the background are not lost. -->
+      <provider
+          android:name="io.bearound.cordova.BearoundInitProvider"
+          android:authorities="${applicationId}.bearoundinit"
+          android:exported="false" />
+
+      <!-- Priority above the default (0) so this service is the one FCM hands messages
+           to; anything that is not a Bearound message is forwarded to the app's other
+           FirebaseMessagingService, when there is one. -->
+      <service
+          android:name="io.bearound.cordova.BearoundCordovaMessagingService"
+          android:enabled="$BEAROUND_FCM_SERVICE_ENABLED"
+          android:exported="false">
+        <intent-filter android:priority="100">
+          <action android:name="com.google.firebase.MESSAGING_EVENT" />
+        </intent-filter>
+      </service>
+    </config-file>
+
+    <source-file src="src/android/BearoundPlugin.kt" target-dir="java/io/bearound/cordova" />
+    <source-file src="src/android/BearoundBridge.kt" target-dir="java/io/bearound/cordova" />
+    <source-file src="src/android/BearoundInitProvider.kt" target-dir="java/io/bearound/cordova" />
+    <source-file src="src/android/BearoundCordovaMessagingService.kt" target-dir="java/io/bearound/cordova" />
+
+    <framework src="src/android/bearound.gradle" custom="true" type="gradleReference" />
+    <framework src="com.google.firebase:firebase-messaging:$BEAROUND_FIREBASE_MESSAGING_VERSION" />
+  </platform>
+
+  <!-- ===================================================================== -->
+  <!-- iOS                                                                   -->
+  <!-- ===================================================================== -->
+  <platform name="ios">
+    <!-- What your users read in the iOS permission dialogs. Apple reviews the wording
+         against what the app does, so override the defaults with app-specific copy. -->
+    <preference name="BEAROUND_BLUETOOTH_USAGE_DESCRIPTION"
+                default="This app uses Bluetooth to detect nearby locations and provide relevant features." />
+    <preference name="BEAROUND_LOCATION_WHEN_IN_USE_USAGE_DESCRIPTION"
+                default="This app uses your location to detect nearby locations and provide relevant features." />
+    <preference name="BEAROUND_LOCATION_ALWAYS_USAGE_DESCRIPTION"
+                default="Allow &quot;Always&quot; so this app can detect nearby locations in the background." />
+
+    <config-file target="config.xml" parent="/*">
+      <feature name="Bearound">
+        <param name="ios-package" value="BearoundPlugin" />
+        <param name="onload" value="true" />
+      </feature>
+    </config-file>
+
+    <config-file target="*-Info.plist" parent="UIBackgroundModes">
+      <array>
+        <string>bluetooth-central</string>
+        <string>fetch</string>
+        <string>location</string>
+        <string>processing</string>
+        <string>remote-notification</string>
+      </array>
+    </config-file>
+    <config-file target="*-Info.plist" parent="BGTaskSchedulerPermittedIdentifiers">
+      <array>
+        <string>io.bearound.sdk.sync</string>
+        <string>io.bearound.sdk.processing</string>
+      </array>
+    </config-file>
+    <config-file target="*-Info.plist" parent="NSBluetoothAlwaysUsageDescription">
+      <string>$BEAROUND_BLUETOOTH_USAGE_DESCRIPTION</string>
+    </config-file>
+    <config-file target="*-Info.plist" parent="NSBluetoothPeripheralUsageDescription">
+      <string>$BEAROUND_BLUETOOTH_USAGE_DESCRIPTION</string>
+    </config-file>
+    <config-file target="*-Info.plist" parent="NSLocationWhenInUseUsageDescription">
+      <string>$BEAROUND_LOCATION_WHEN_IN_USE_USAGE_DESCRIPTION</string>
+    </config-file>
+    <config-file target="*-Info.plist" parent="NSLocationAlwaysAndWhenInUseUsageDescription">
+      <string>$BEAROUND_LOCATION_ALWAYS_USAGE_DESCRIPTION</string>
+    </config-file>
+
+    <!-- Push Notifications capability: without the signed aps-environment entitlement
+         APNs issues no token. Debug builds talk to the sandbox, release to production. -->
+    <config-file target="*/Entitlements-Debug.plist" parent="aps-environment">
+      <string>development</string>
+    </config-file>
+    <config-file target="*/Entitlements-Release.plist" parent="aps-environment">
+      <string>production</string>
+    </config-file>
+
+    <!-- Access Wi-Fi Information: without it iOS hides the connected access point and
+         the SDK reports none. Requires the capability on the App ID. -->
+    <config-file target="*/Entitlements-Debug.plist" parent="com.apple.developer.networking.wifi-info">
+      <true />
+    </config-file>
+    <config-file target="*/Entitlements-Release.plist" parent="com.apple.developer.networking.wifi-info">
+      <true />
+    </config-file>
+
+    <source-file src="src/ios/BearoundPlugin.swift" />
+    <source-file src="src/ios/BearoundCordovaBridge.swift" />
+    <source-file src="src/ios/BearoundCordovaBootstrap.swift" />
+    <source-file src="src/ios/BearoundAppDelegateHook.m" />
+
+    <podspec>
+      <config>
+        <source url="https://cdn.cocoapods.org/" />
+      </config>
+      <pods use-frameworks="true">
+        <pod name="BearoundSDK" spec="3.18.0" />
+      </pods>
+    </podspec>
+  </platform>
+</plugin>

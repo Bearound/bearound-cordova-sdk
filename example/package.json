@@ -1,0 +1,25 @@
+{
+  "name": "bearound-cordova-example",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Example app for the Bearound Cordova plugin.",
+  "scripts": {
+    "plugin:pack": "rm -rf .plugin && mkdir .plugin && (cd .. && npm pack --silent --pack-destination example/.plugin) && tar -xzf .plugin/*.tgz -C .plugin",
+    "plugin:install": "npm run plugin:pack && (cordova plugin rm @bearound/cordova-plugin --nosave || true) && cordova plugin add ./.plugin/package --nosave",
+    "android": "cordova run android --device",
+    "ios": "cordova run ios --device",
+    "build:android": "cordova build android",
+    "build:ios": "cordova build ios --emulator"
+  },
+  "devDependencies": {
+    "cordova": "^13.0.0",
+    "cordova-android": "^15.1.0",
+    "cordova-ios": "^8.2.0"
+  },
+  "cordova": {
+    "platforms": [
+      "android",
+      "ios"
+    ]
+  }
+}

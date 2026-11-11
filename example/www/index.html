@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' data: https://ssl.gstatic.com; style-src 'self'; script-src 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="css/app.css">
+  <title>BeAroundScan</title>
+</head>
+<body>
+  <!-- Mirrors the native BeAroundScan example apps: same sections, labels and order. -->
+  <div id="app">
+    <main id="tab-beacons" class="tab">
+      <header class="hero">
+        <h1>BeAroundScan</h1>
+        <p id="status-message" class="secondary">Aguardando o dispositivo</p>
+        <p id="versions" class="tiny secondary"></p>
+      </header>
+
+      <section class="block">
+        <h2>Permissões</h2>
+        <div class="card rows">
+          <div class="row"><span class="icon" data-icon="location"></span><span class="label">Localização:</span><span id="perm-location" class="value">Verificando...</span></div>
+          <div class="row"><span class="icon" data-icon="antenna"></span><span class="label">Bluetooth:</span><span id="perm-bluetooth" class="value">Verificando...</span></div>
+          <p id="ble-diagnostic" class="diagnostic" hidden></p>
+          <div class="row"><span class="icon" data-icon="bell"></span><span class="label">Notificações:</span><span id="perm-notifications" class="value">Verificando...</span></div>
+        </div>
+      </section>
+
+      <div id="scan-details" hidden>
+        <section class="block">
+          <h2>Informações do Scan</h2>
+          <div class="card rows">
+            <div class="row"><span class="label">Precisão:</span><span id="scan-precision" class="value">--</span></div>
+          </div>
+        </section>
+
+        <section class="block">
+          <h2>Informações do Sync</h2>
+          <div class="card rows">
+            <div class="row"><span class="label">Último sync:</span><span id="sync-time" class="value">--</span></div>
+            <div class="row"><span class="label">Beacons sincronizados:</span><span id="sync-count" class="value">0</span></div>
+            <div class="row"><span class="label">Resposta do ingest:</span><span id="sync-result" class="value">Aguardando...</span></div>
+          </div>
+        </section>
+
+        <section class="block">
+          <div class="block-title">
+            <h2 id="geofence-title">Debug Geofence</h2>
+            <button id="geofence-clear" class="link" type="button" hidden>Limpar</button>
+          </div>
+          <div id="eyes" class="eyes"></div>
+          <div class="card rows">
+            <p class="caption-title">Scan ativo</p>
+            <div class="row"><span class="icon" data-icon="antenna"></span><span class="label">Scan ativo (ranging):</span><span id="active-scan" class="value">desligado</span></div>
+          </div>
+          <div id="geofence-events-block" hidden>
+            <p class="caption-title">Eventos recentes</p>
+            <ul id="geofence-events" class="card events"></ul>
+          </div>
+        </section>
+      </div>
+
+      <div class="actions">
+        <button id="scan-toggle" class="button prominent" type="button">Iniciar Scan</button>
+        <button id="open-settings" class="button bordered" type="button"><span class="icon" data-icon="gear"></span>Configurações do SDK</button>
+      </div>
+
+      <div class="sort">
+        <label for="sort-option" class="secondary">Ordenar:</label>
+        <select id="sort-option">
+          <option value="proximity">Proximidade</option>
+          <option value="id">ID</option>
+        </select>
+      </div>
+
+      <p id="last-update" class="caption secondary center" hidden></p>
+
+      <div id="empty-state" class="empty">
+        <span class="icon large" data-icon="antenna"></span>
+        <p class="headline secondary">Aguardando próximos scans</p>
+        <p id="empty-hint" class="caption secondary" hidden>O sistema está monitorando beacons</p>
+      </div>
+
+      <div id="beacon-sections"></div>
+    </main>
+
+    <main id="tab-retry" class="tab" hidden>
+      <header class="hero">
+        <h1>Retry Queue</h1>
+        <p id="retry-summary" class="secondary">0 batches pendentes</p>
+      </header>
+      <div id="retry-empty" class="empty">
+        <span class="icon large" data-icon="check"></span>
+        <p class="headline secondary">Fila vazia</p>
+        <p class="caption secondary">Todos os beacons foram sincronizados</p>
+      </div>
+      <div id="retry-batches"></div>
+    </main>
+
+    <main id="tab-log" class="tab" hidden>
+      <header class="hero">
+        <h1>Log de Detecções</h1>
+        <p id="log-counts" class="tiny secondary"></p>
+      </header>
+      <div id="log-filter" class="segmented" role="tablist">
+        <button type="button" data-filter="all" class="selected">Tudo</button>
+        <button type="button" data-filter="foreground">FG</button>
+        <button type="button" data-filter="background">BG</button>
+        <button type="button" data-filter="backgroundLocked">BG Lock</button>
+        <button type="button" data-filter="terminated">T</button>
+      </div>
+      <div class="actions inline">
+        <button id="log-refresh" class="button bordered" type="button">Atualizar</button>
+        <button id="log-clear" class="button bordered danger" type="button">Limpar</button>
+      </div>
+      <div id="log-empty" class="empty">
+        <span class="icon large" data-icon="list"></span>
+        <p class="headline secondary">Nenhuma detecção registrada</p>
+      </div>
+      <ul id="log-entries" class="log"></ul>
+    </main>
+
+    <nav class="tabbar">
+      <button type="button" data-tab="beacons" class="selected"><span class="icon" data-icon="antenna"></span>Beacons</button>
+      <button type="button" data-tab="retry"><span class="icon" data-icon="retry"></span>Retry Queue</button>
+      <button type="button" data-tab="log"><span class="icon" data-icon="list"></span>Log</button>
+    </nav>
+  </div>
+
+  <div id="settings" class="sheet" hidden>
+    <div class="sheet-bar">
+      <span></span>
+      <strong>Configurações</strong>
+      <button id="settings-close" class="link" type="button">Fechar</button>
+    </div>
+    <div class="sheet-body">
+      <div class="form-group">
+        <div class="form-row"><span>Versão do SDK</span><span id="settings-version" class="secondary mono">--</span></div>
+      </div>
+
+      <p class="form-title">Precisão do Scan</p>
+      <div class="form-group">
+        <div class="form-row">
+          <label for="settings-precision">Precisão</label>
+          <select id="settings-precision">
+            <option value="high">Alta (Ininterrupto)</option>
+            <option value="medium">Média (sync 60s)</option>
+            <option value="low">Baixa (sync 60s · accuracy 100m)</option>
+          </select>
+        </div>
+      </div>
+
+      <p class="form-title">Fila de Retry</p>
+      <div class="form-group">
+        <div class="form-row">
+          <label for="settings-queue">Tamanho da Fila</label>
+          <select id="settings-queue">
+            <option value="50">Small (50 batches)</option>
+            <option value="100">Medium (100 batches)</option>
+            <option value="200">Large (200 batches)</option>
+            <option value="500">XLarge (500 batches)</option>
+          </select>
+        </div>
+      </div>
+
+      <p class="form-title">Propriedades do Usuário</p>
+      <div class="form-group">
+        <input id="settings-user-id" type="text" placeholder="ID do usuário" autocapitalize="off" autocomplete="off" spellcheck="false">
+        <input id="settings-user-email" type="email" placeholder="E-Mail do usuário" autocapitalize="off" autocomplete="off" spellcheck="false">
+        <input id="settings-user-name" type="text" placeholder="Nome do usuário" autocomplete="off">
+        <input id="settings-user-custom" type="text" placeholder="Propriedade customizada" autocapitalize="off" autocomplete="off" spellcheck="false">
+      </div>
+
+      <p class="form-title">Token</p>
+      <div class="form-group">
+        <input id="settings-token" type="text" placeholder="Business token" autocapitalize="off" autocomplete="off" spellcheck="false">
+      </div>
+
+      <p class="form-title">Depuração</p>
+      <div class="form-group">
+        <label class="form-row"><span>Notificações de eventos do SDK</span><input id="settings-debug-notifications" type="checkbox"></label>
+        <label id="settings-foreground-row" class="form-row" hidden><span>Serviço em primeiro plano (Android)</span><input id="settings-foreground" type="checkbox"></label>
+      </div>
+
+      <!-- Optional: only keeps Wi-Fi observations coming in the background. Opens the
+           system settings screen on Android, so it is never requested automatically. -->
+      <button id="settings-background-location" class="button bordered" type="button" hidden>Permitir localização em segundo plano</button>
+
+      <button id="settings-apply" class="button prominent" type="button">Aplicar Configurações</button>
+    </div>
+  </div>
+
+  <script src="cordova.js"></script>
+  <!-- Optional and local: see js/local-config.example.js -->
+  <script src="js/local-config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

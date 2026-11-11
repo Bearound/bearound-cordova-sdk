@@ -1,0 +1,51 @@
+{
+  "name": "@bearound/cordova-plugin",
+  "version": "3.18.0",
+  "description": "Bearound SDK for Cordova: BLE beacon detection, background sync and push on Android and iOS.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bearound/bearound-cordova-sdk.git"
+  },
+  "keywords": [
+    "ecosystem:cordova",
+    "cordova-android",
+    "cordova-ios",
+    "bearound",
+    "beacon",
+    "ble",
+    "bluetooth",
+    "push"
+  ],
+  "types": "types/index.d.ts",
+  "files": [
+    "plugin.xml",
+    "www",
+    "src",
+    "types",
+    "docs",
+    "README.md",
+    "AI-AGENT-SETUP.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "cordova": {
+    "id": "@bearound/cordova-plugin",
+    "platforms": [
+      "android",
+      "ios"
+    ]
+  },
+  "engines": {
+    "cordovaDependencies": {
+      "3.18.0": {
+        "cordova": ">=12.0.0",
+        "cordova-android": ">=14.0.0",
+        "cordova-ios": ">=8.0.0"
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}

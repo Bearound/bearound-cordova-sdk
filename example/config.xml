@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<widget id="io.bearound.cordova.example" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>Bearound Cordova</name>
+    <description>Example app for the Bearound Cordova plugin.</description>
+    <content src="index.html" />
+    <allow-intent href="https://*/*" />
+
+    <platform name="android">
+        <preference name="GradlePluginKotlinEnabled" value="true" />
+        <preference name="AndroidXEnabled" value="true" />
+        <!-- Like the native example: keeps Wi-Fi observations coming in the background.
+             Not needed for beacon detection. -->
+        <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+        </config-file>
+    </platform>
+
+    <platform name="ios">
+        <preference name="deployment-target" value="15.0" />
+        <!-- Rich push on iOS needs two app extensions; a plugin cannot add targets. -->
+        <hook type="after_prepare" src="hooks/ios-notification-extensions.js" />
+        <!-- Needed for the App Tracking Transparency prompt the example raises. -->
+        <config-file target="*-Info.plist" parent="NSUserTrackingUsageDescription">
+            <string>This identifier is used to measure visits to partner locations.</string>
+        </config-file>
+    </platform>
+</widget>

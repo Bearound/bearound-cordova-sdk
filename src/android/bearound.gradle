@@ -1,0 +1,9 @@
+// Applied to the app module by cordova-android (gradleReference).
+// The native Bearound SDK is published on JitPack.
+repositories {
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    implementation 'com.github.Bearound:bearound-android-sdk:v3.18.0'
+}
