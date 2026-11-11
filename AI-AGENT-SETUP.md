@@ -18,7 +18,14 @@ NOT a template: do not copy its config.xml, its bundle id or its token handling.
 1. Check versions: Cordova CLI >= 12, cordova-android >= 14, cordova-ios >= 8,
    Node.js >= 20.17, CocoaPods installed. Report anything older instead of forcing it.
 
-2. Install:
+2. config.xml, Android platform, BEFORE installing the plugin: add
+   `<preference name="GradlePluginKotlinEnabled" value="true" />` and
+   `<preference name="AndroidXEnabled" value="true" />`. Do NOT add
+   ACCESS_BACKGROUND_LOCATION: it is not needed for beacon detection and drags the app
+   into Google Play's background-location review. Only add it if I ask for Wi-Fi
+   observations in the background.
+
+3. Install:
    `cordova plugin add @bearound/cordova-sdk`
    passing the three iOS usage-description variables
    (BEAROUND_BLUETOOTH_USAGE_DESCRIPTION,
@@ -26,13 +33,8 @@ NOT a template: do not copy its config.xml, its bundle id or its token handling.
    BEAROUND_LOCATION_ALWAYS_USAGE_DESCRIPTION) with user-facing wording that describes
    what MY app does. Ask me for the wording if you cannot infer it; never ship the
    generic defaults.
-
-3. config.xml, Android platform: add
-   `<preference name="GradlePluginKotlinEnabled" value="true" />` and
-   `<preference name="AndroidXEnabled" value="true" />`. Do NOT add
-   ACCESS_BACKGROUND_LOCATION: it is not needed for beacon detection and drags the app
-   into Google Play's background-location review. Only add it if I ask for Wi-Fi
-   observations in the background.
+   The npm package version can be a patch ahead of the native SDK version quoted in the
+   README (for example plugin 3.18.2 on native SDK 3.18.0): that is expected.
 
 4. config.xml, iOS platform: if the build machine runs Xcode 27 or newer, set
    `<preference name="deployment-target" value="15.0" />` and create a build.json that
@@ -50,7 +52,14 @@ NOT a template: do not copy its config.xml, its bundle id or its token handling.
 
 6. businessToken is REQUIRED and must be supplied by ME. If you do not have it, STOP and
    ask. Never hardcode a placeholder, never reuse a token found in any example app, and
-   never commit it: read it from a build-time config that git ignores.
+   never commit it. Cordova has no build-time secrets mechanism, so use a local script:
+   create `www/js/local-config.js` containing only
+   `window.BEAROUND_TOKEN = "<token>";`, add that path to `.gitignore`, commit a
+   `www/js/local-config.example.js` with an empty value, and load it in `index.html`
+   with a script tag placed after `cordova.js` and before the app script. Read
+   `window.BEAROUND_TOKEN` in JavaScript and, if it is empty or missing, show an error
+   on screen and do NOT call configure(). If MY app already has its own configuration
+   or secrets mechanism, use that instead.
 
 7. Android scan mode: default to the opportunistic scan (do NOT call
    enableForegroundScanning). The foreground service is more resilient on aggressive
@@ -59,8 +68,15 @@ NOT a template: do not copy its config.xml, its bundle id or its token handling.
    battery flow: if `isIgnoringBatteryOptimizations()` is false, show a rationale and
    call `openBatteryOptimizationSettings()`; if `isAutostartManageable()` is true, show
    a rationale and call `openManufacturerAutostartSettings()`.
+   Either way the merged manifest carries FOREGROUND_SERVICE_CONNECTED_DEVICE, because
+   the native SDK declares it: that alone can require a Google Play declaration (README,
+   "Google Play review"). Tell me about it; do NOT remove the permission on your own.
 
-8. Push on Android, only if the app uses push: I must give you my google-services.json.
+8. Push on Android, only if the app uses push (if it does not, skip steps 8 and 9: the
+   plugin still links Firebase Messaging, which is harmless without google-services.json
+   and only logs one warning at launch; note that `ensurePermissions()` includes the
+   notification prompt on Android 13+ either way). I must give you my
+   google-services.json.
    Add `<preference name="GradlePluginGoogleServicesEnabled" value="true" />` and the
    `<resource-file src="google-services.json" target="app/google-services.json" />`
    entry. Write no push code: the plugin's FirebaseMessagingService captures the token
