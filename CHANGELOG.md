@@ -2,6 +2,13 @@
 
 Versions follow the native Bearound SDK the plugin is built on.
 
+## Unreleased
+
+- README reorganised on the model of the native SDK READMEs: what the SDK detects,
+  recommended setup, support matrix, business token, encounter layer, Google Play review,
+  background reliability, detection log and troubleshooting by symptom.
+- The device verification record is no longer shipped with the package.
+
 ## 3.18.0
 
 First release. Built on the native Bearound SDK 3.18.0 for Android and iOS.
