@@ -1,6 +1,7 @@
 # Release guide: @bearound/cordova-sdk
 
-The plugin version follows the native Bearound SDK it is built on.
+The major and minor version follow the native Bearound SDK the plugin is built on. A patch
+release may carry changes of the plugin alone (documentation, bridge fixes).
 
 ## Before releasing
 
