@@ -4,6 +4,9 @@ Versions follow the native Bearound SDK the plugin is built on.
 
 ## Unreleased
 
+- README: dedicated sections for Wi-Fi observations, presence heartbeat, advertising
+  identifier, controlling what the SDK collects, configuration options (scan precision,
+  retry queue, user identity, periodic reconciliation) and models.
 - The npm package and plugin id are now `@bearound/cordova-sdk`, in line with the other
   Bearound SDK packages. `@bearound/cordova-plugin` is replaced by it; the JavaScript API
   (`cordova.plugins.Bearound`) is unchanged.

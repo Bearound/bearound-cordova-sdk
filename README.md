@@ -39,14 +39,24 @@ configuration and events match those packages; the differences are listed in
 * [Quick Start](#quick-start)
 * [Permissions](#permissions)
   * [Encounter layer (device-to-device)](#encounter-layer-device-to-device)
+* [Wi-Fi observations](#wi-fi-observations)
+* [Presence heartbeat](#presence-heartbeat)
+* [Advertising identifier (IDFA / AAID)](#advertising-identifier-idfa--aaid)
+* [Controlling what the SDK collects](#controlling-what-the-sdk-collects)
 * [Background behavior](#background-behavior)
   * [Google Play review (Android)](#google-play-review-android)
   * [Background reliability (Android)](#background-reliability-android)
   * [Detection log](#detection-log)
   * [Testing terminated app detection](#testing-terminated-app-detection)
 * [Push notifications](#push-notifications)
+* [Configuration options](#configuration-options)
+  * [Scan precision](#scan-precision)
+  * [Retry queue size](#retry-queue-size)
+  * [User identity](#user-identity)
+  * [Periodic reconciliation](#periodic-reconciliation)
 * [API](#api)
 * [Events](#events)
+* [Models](#models)
 * [Errors](#errors)
 * [Example app](#example-app)
 * [Troubleshooting](#troubleshooting)
@@ -346,6 +356,175 @@ Notes:
   that beacons use.
 - It adds no second radio scan: it reuses the scan the SDK already runs.
 
+## Wi-Fi observations
+
+Alongside each beacon sighting the SDK reports the **access points visible at that moment**.
+
+**No network name is used as identity.** What travels is a one-way hash of the access
+point's hardware address, canonicalised so the same router yields the same identifier on
+both platforms.
+
+Collection is on by default, but data only exists when the app holds the required
+permissions. A missing permission produces empty Wi-Fi observations, not an error:
+
+| Platform | What it reports | What you must do |
+| --- | --- | --- |
+| **Android** | The connected access point **and its neighbours**, with RSSI | Grant precise location (`ACCESS_FINE_LOCATION`) and keep system Location on. `requestForegroundPermissions()` and `ensurePermissions()` ask for it. |
+| **iOS** | Only the **connected** access point, without RSSI (there is no public API for neighbours) | Enable the **Access Wi-Fi Information** capability on your App ID. The plugin already adds the entitlement to the app. |
+
+Nothing degrades without them: the field is omitted and every other feature behaves the
+same.
+
+> **In the background, Wi-Fi needs one permission more, and its absence is invisible.**
+>
+> - **Android:** from Android 10 on, a backgrounded app without
+>   `ACCESS_BACKGROUND_LOCATION` gets an empty scan list. No error: the Wi-Fi list simply
+>   arrives empty as soon as the app leaves the foreground, with every other permission
+>   granted.
+> - **iOS:** with "While Using" the system stops revealing the access point in the
+>   background. "Always" is what the SDK asks for, but treat background Wi-Fi on iOS as
+>   opportunistic, not guaranteed.
+>
+> A hand test with the app open passes, while background collection stays empty. Beacon
+> detection is **not** affected either way.
+
+That is why the plugin never asks for background location on its own: on Android it is a
+permission with a Google Play policy review, and requesting it opens the system settings
+screen. If your app needs Wi-Fi observations in the background, declare the permission in
+your `config.xml` and ask for it explicitly, after foreground location was granted:
+
+```xml
+<platform name="android">
+    <config-file target="AndroidManifest.xml" parent="/manifest">
+        <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    </config-file>
+</platform>
+```
+
+The `android:` attribute needs `xmlns:android="http://schemas.android.com/apk/res/android"`
+on the `<widget>` element of your `config.xml`.
+
+```js
+const status = await cordova.plugins.Bearound.requestBackgroundLocation();
+// status.backgroundLocation tells you the outcome
+```
+
+If the manifest does not declare the permission, the call rejects with
+`PERMISSION_NOT_DECLARED` instead of prompting.
+
+## Presence heartbeat
+
+A device that sees no beacon and no other SDK device would otherwise stay silent, and the
+backend could not tell **"there was no coverage here"** apart from **"the app was not
+running"**. Those two look identical in the data and mean opposite things.
+
+So a scan that finds nothing still reports in, carrying what the device can observe: its
+own location and the Wi-Fi around it.
+
+```js
+await cordova.plugins.Bearound.configure({
+  businessToken: 'your-business-token',
+  presenceHeartbeatIntervalMs: 5 * 60 * 1000, // default
+});
+```
+
+| | |
+| --- | --- |
+| Default | 5 minutes (`300000`) |
+| Accepted range | 1 minute to 1 hour (clamped natively) |
+| Turn it off | `0` |
+
+Two things it does **not** do. It never throttles **scanning**, only the upload, so
+detection latency is untouched. And it sends nothing when there is neither a location fix
+nor an access point to report: an app that grants no permissions, or that turned both
+signals off in [`configure`](#controlling-what-the-sdk-collects), sends no heartbeat.
+
+## Advertising identifier (IDFA / AAID)
+
+The SDK can report the advertising identifier, the resettable, user-controlled identifier
+used for advertising.
+
+**iOS: you must ask.** Add the usage description to your `config.xml`:
+
+```xml
+<platform name="ios">
+    <config-file target="*-Info.plist" parent="NSUserTrackingUsageDescription">
+        <string>We use this identifier to measure visits and show you more relevant offers.</string>
+    </config-file>
+</platform>
+```
+
+and call the request with the app in the **foreground**, at a point where the user has
+just been told why:
+
+```js
+const status = await cordova.plugins.Bearound.requestTrackingAuthorization();
+// 'authorized' | 'denied' | 'restricted' | 'notDetermined' | 'unavailable'
+```
+
+Without the key iOS shows **no dialog at all** and the status stays `notDetermined`. The
+prompt appears once per install, so the call is safe on every launch. To read the state
+without prompting, use `getTrackingAuthorizationStatus()`.
+
+**Android: you opt in from your app.** The SDK does not declare the `AD_ID` permission and
+the plugin does not link Play Services' advertising library. To share the id, add
+`com.google.android.gms:play-services-ads-identifier` to your Android build; its manifest
+declares `com.google.android.gms.permission.AD_ID`. Without `AD_ID`, from `targetSdk` 33
+the platform returns a zeroed id and the SDK reports none. There is no runtime prompt: the
+user's choice lives in system settings.
+
+> **Store obligations follow the feature, not the SDK.** Prompting for tracking obliges you
+> to declare **Tracking** in your App Store privacy label; the `AD_ID` permission obliges
+> you to tick **"Device or other IDs"** in the Play Data Safety form. Apps for children
+> must not carry `AD_ID` (Play Families policy).
+
+If your app collects the advertising identifier for its own purposes but you do not want
+it sent to Bearound, pass `collectAdvertisingId: false`.
+
+## Controlling what the SDK collects
+
+Three of the signals in the payload describe the **person**, not the sighting: the
+advertising identifier, the device's own coordinates, and the Wi-Fi access points around
+it. Your app may collect them for its own purposes and still not want to share them with
+Bearound: a different legal basis, a store declaration you do not want to extend, or a
+client policy that says no.
+
+Each one has a switch in `configure()`, on both platforms:
+
+```js
+await cordova.plugins.Bearound.configure({
+  businessToken: 'your-business-token',
+  collectAdvertisingId: false, // default: true
+  collectLocation: false,      // default: true
+  collectWifi: true,           // default: true
+});
+```
+
+**All three default to `true`**, so an integration that does not mention them reports
+everything the granted permissions allow.
+
+A switch turned off means **collect nothing**, not "collect and withhold": the value is
+never read from the platform.
+
+| Switch | What disappears from the payload | Also |
+| --- | --- | --- |
+| `collectAdvertisingId: false` | The advertising identifier and the tracking status | iOS: `requestTrackingAuthorization()` shows no prompt and only reports the current status. Android never queries Play Services for the id. |
+| `collectLocation: false` | The device's coordinates | The location permission status is still reported: it says what the user granted, not where they are. |
+| `collectWifi: false` | The Wi-Fi access points and the connected network | No Wi-Fi read is issued at all. |
+
+**Beacon detection is never affected.** With `collectLocation: false` the SDK still wakes,
+detects and reports beacons; it stops saying where the device was.
+
+What it does affect is the [presence heartbeat](#presence-heartbeat): a scan that found
+nothing only reports in when it has a location or an access point to carry. Turn both off
+and the heartbeat stops firing, by design.
+
+Two related options: `adaptiveSamplingEnabled` lets the upload cadence follow the device's
+motion, and `collectMotionSensors: false` turns every motion source off.
+
+The choices are persisted with the rest of the configuration, so they survive the
+background relaunches both systems perform on the SDK's behalf.
+
 ## Background behavior
 
 `startScanning()` enables background detection on both platforms. There is no separate
@@ -574,6 +753,96 @@ cordova build ios --device --developmentTeam=TEAMID --automaticProvisioning \
   --buildFlag="DEVELOPMENT_TEAM=TEAMID" --buildFlag="IPHONEOS_DEPLOYMENT_TARGET=15.0"
 ```
 
+## Configuration options
+
+Every option below is a field of `configure()`. The full list is in the [API](#api).
+
+### Scan precision
+
+Controls how hard the radio works and how often detections are uploaded:
+
+```js
+await cordova.plugins.Bearound.configure({
+  businessToken: 'your-business-token',
+  scanPrecision: 'high', // default
+});
+```
+
+| Mode | Behavior | Use case |
+| --- | --- | --- |
+| `'high'` | Continuous scanning with the most frequent uploads | Maximum detection, higher battery usage |
+| `'medium'` | Continuous scanning at a balanced radio duty, upload every 60 s | Balanced detection and battery |
+| `'low'` | Lowest radio duty, upload every 60 s | Maximum battery savings |
+
+The plugin defaults to `'high'` on both platforms, like the React Native and Flutter
+packages. Active scanning is also gated by beacon presence: outside a beacon zone only the
+low-power OS scan runs, and the full scan starts on the first detection.
+
+### Retry queue size
+
+Failed upload batches are persisted on the device and retried, up to a configurable
+limit:
+
+```js
+await cordova.plugins.Bearound.configure({
+  businessToken: 'your-business-token',
+  maxQueuedPayloads: 100, // 50, 100 (default), 200 or 500
+});
+
+const pending = await cordova.plugins.Bearound.getPendingBatchCount();
+const batches = await cordova.plugins.Bearound.getPendingBatches(); // oldest first
+```
+
+### User identity
+
+`internalId` is **your own id for the user**, for example from your CRM. Set it right after
+`configure()`, so every beacon event carries it:
+
+```js
+const Bearound = cordova.plugins.Bearound;
+
+await Bearound.configure({ businessToken: 'your-business-token' });
+await Bearound.setUserProperties({ internalId: 'user123' });
+
+// More data later:
+await Bearound.setUserProperties({
+  internalId: 'user123',
+  email: 'user@example.com',
+  name: 'John Doe',
+  customProperties: { plan: 'premium' },
+});
+
+// On logout:
+await Bearound.clearUserProperties();
+```
+
+The native SDKs keep the user association across the relaunches the OS performs in the
+background, so events detected with the app closed stay attributed to the user.
+
+### Periodic reconciliation
+
+A best-effort safety net: a periodic background task that re-arms the background scan,
+waits a short collection window and drains pending data through the regular sync. The
+OS-registered scan remains the primary detection mechanism; this layer only complements
+it, and the OS decides when it actually runs.
+
+```js
+await cordova.plugins.Bearound.configure({
+  businessToken: 'your-business-token',
+  periodicReconciliationEnabled: true,          // default
+  periodicReconciliationIntervalMs: 20 * 60000, // default: 20 min
+  periodicScanDurationMs: 12000,                // default: 12 s
+});
+```
+
+The interval and the scan window are clamped natively (see the option table in the
+[API](#api)). Pass `periodicReconciliationEnabled: false` to turn the layer off.
+
+### Bluetooth metadata
+
+Beacon metadata (battery, temperature, firmware, movements) arrives in the same Bearound
+advertisement and is exposed as `beacon.metadata`. No configuration is needed.
+
 ## API
 
 Every method returns a promise.
@@ -694,6 +963,54 @@ Each `add...Listener` returns a subscription with `remove()`.
 A beacon has `uuid`, `major`, `minor`, `rssi`, `proximity`, `accuracy`, `timestamp` and,
 when available, `metadata`, `txPower`, `alreadySynced`, `syncedAt`. iOS adds
 `discoverySources`; Android adds `rssiRaw`, `rssiSamples` and `isStale`.
+
+## Models
+
+The TypeScript definitions in `types/index.d.ts` are the reference. The main shapes:
+
+### Beacon
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `uuid` | `string` | The Bearound beacon UUID |
+| `major`, `minor` | `number` | The beacon's identity |
+| `rssi` | `number` | Smoothed signal strength |
+| `proximity` | `'immediate' \| 'near' \| 'far' \| 'bt' \| 'unknown'` | `'bt'` marks a beacon seen over Bluetooth only, with no distance |
+| `accuracy` | `number` | Estimated distance in metres; `-1` when unknown |
+| `timestamp` | `number` | Epoch milliseconds |
+| `metadata` | `BeaconMetadata` | Present once a full Bearound frame was captured |
+| `txPower` | `number` | Optional |
+| `alreadySynced`, `syncedAt` | `boolean`, `number` | Set after a successful upload |
+| `discoverySources` | `string[]` | iOS only: which detector saw the beacon |
+| `rssiRaw` | `number` | Android only: last unsmoothed sample |
+| `rssiSamples` | `RssiStats` | Android only: statistics of the sync window |
+| `isStale` | `boolean` | Android only: no packet recently, still within the timeout |
+
+### BeaconMetadata
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `firmwareVersion` | `string` | An integer encoded as a string |
+| `batteryLevel` | `number` | Millivolts |
+| `movements` | `number` | Movement counter |
+| `temperature` | `number` | |
+| `txPower`, `rssiFromBLE`, `isConnectable` | optional | |
+
+### RssiStats
+
+Per-beacon RSSI statistics accumulated over each sync window: `count`, `min`, `max`,
+`avg`, `stdDev`, `firstSeen`, `lastSeen`.
+
+### UserProperties
+
+`internalId`, `email`, `name` (all optional strings) and `customProperties`, a map of
+string to string.
+
+### PersistedLogEntry
+
+`id`, `timestamp` (epoch milliseconds), `state` (`foreground`, `background`,
+`backgroundLocked` or `terminated`), `type` and `detail`. See
+[Detection log](#detection-log).
 
 ## Errors
 
