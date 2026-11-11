@@ -3,6 +3,12 @@
 Major and minor versions follow the native Bearound SDK the plugin is built on. A patch
 release may carry changes of the plugin alone.
 
+## Unreleased
+
+- Agent prompt and README corrected after running the prompt on a blank app: step order,
+  a concrete place for the business token, the permission result fields, apps without
+  push, the foreground-service permission and the plugin versus native SDK version.
+
 ## 3.18.2
 
 Documentation only. Same code and same native SDKs (3.18.0) as 3.18.0.

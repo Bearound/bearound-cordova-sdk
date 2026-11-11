@@ -119,6 +119,10 @@ emulator have no usable Bluetooth radio.
 | Node.js | 20.17 or newer |
 | Native Bearound SDK | Android 3.18.0 (JitPack), iOS 3.18.0 (CocoaPods) |
 
+The plugin version follows the native SDK in its major and minor numbers; its patch number
+can be ahead (documentation or bridge-only releases). `getSdkVersion()` returns the native
+SDK version.
+
 The Android bridge is written in Kotlin and the iOS bridge in Swift. CocoaPods must be
 installed for iOS builds.
 
@@ -178,8 +182,8 @@ Behavior with a wrong or missing token:
   `success: false`, a growing `getPendingBatchCount()`, and a device that never appears in
   the Control Hub. If nothing shows up in the Hub, check the token first.
 
-Keep the token out of version control: read it from a build-time or local configuration
-file that git ignores, as the example app does.
+Keep the token out of version control: see [Quick Start](#quick-start) for a pattern that
+works in a Cordova app.
 
 ---
 
@@ -312,6 +316,23 @@ const Bearound: BearoundPlugin = cordova.plugins.Bearound;
 Bearound.addBeaconsListener((beacons: Beacon[]) => {});
 ```
 
+**Where to keep the token.** Cordova has no build-time secrets mechanism, so keep the
+token in a small script that git ignores and load it before your app code:
+
+```js
+// www/js/local-config.js (listed in .gitignore)
+window.BEAROUND_TOKEN = 'your-business-token';
+```
+
+```html
+<script src="cordova.js"></script>
+<script src="js/local-config.js"></script>
+<script src="js/index.js"></script>
+```
+
+Commit a `local-config.example.js` with an empty value so the next developer knows what to
+create, and do not call `configure()` when the value is missing.
+
 ## Permissions
 
 | Method | Android | iOS |
@@ -324,6 +345,22 @@ Bearound.addBeaconsListener((beacons: Beacon[]) => {});
 
 All of them resolve with the current status. A denied permission is a resolved result,
 never a rejection, and never stops the app.
+
+`checkPermissions()`, `requestForegroundPermissions()`, `requestBackgroundLocation()` and
+`ensurePermissions()` resolve with the same object:
+
+| Field | Android | iOS |
+| --- | --- | --- |
+| `fineLocation` | `ACCESS_FINE_LOCATION` granted | Location authorized ("While Using" or "Always") |
+| `preciseLocation` | Same as `fineLocation` | Location authorized with full accuracy |
+| `btScan` | `BLUETOOTH_SCAN` granted (always `true` below Android 12) | Bluetooth authorized |
+| `btConnect` | `BLUETOOTH_CONNECT` granted (always `true` below Android 12). The SDK does not need it. | Bluetooth authorized |
+| `btAdvertise` | `BLUETOOTH_ADVERTISE` granted (always `true` below Android 12) | Bluetooth authorized |
+| `notifications` | Notifications enabled for the app | Notifications authorized |
+| `backgroundLocation` | `ACCESS_BACKGROUND_LOCATION` granted | Location is "Always" |
+
+`requestNotificationPermission()` and `checkNotificationPermission()` resolve with a
+boolean.
 
 Notes:
 
@@ -718,6 +755,12 @@ two cards, carousel, video).
 
 A Cordova app has no JavaScript running while it is closed, so push is handled natively
 by the plugin. In the common case you write no push code.
+
+**Apps that do not use push.** There is nothing to configure and nothing to remove. The
+plugin links Firebase Messaging on Android; without a `google-services.json` it stays
+idle and logs a single warning at launch. Detection and sync are unaffected. The
+notification permission is still part of `ensurePermissions()` on Android 13+, because
+the foreground service and the debug notifications use it.
 
 ### Android
 
