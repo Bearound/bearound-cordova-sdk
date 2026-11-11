@@ -19,7 +19,7 @@ The native SDKs must already be published in the target version:
    - `package.json`: `version` and the `engines.cordovaDependencies` key
 2. Update `CHANGELOG.md` and the versions quoted in `README.md`.
 3. Run `npm test`, then build the example on both platforms (see `README.md`, "Example
-   app") and record device checks in `docs/DEVICE-VERIFICATION.md`.
+   app") and repeat the device checks on a physical Android and iOS device.
 4. Open a pull request and merge it into `main`.
 5. Tag `main` with `vX.Y.Z` and push the tag. The `Publish` workflow runs the tests,
    checks that the tag matches `package.json` and publishes to npm.

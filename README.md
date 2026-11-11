@@ -1,5 +1,9 @@
 # 🐻 Bearound Cordova Plugin
 
+[![npm](https://img.shields.io/npm/v/@bearound/cordova-plugin.svg)](https://www.npmjs.com/package/@bearound/cordova-plugin)
+[![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-brightgreen.svg)](#requirements)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 Official plugin to integrate **Bearound's** secure BLE beacon detection into **Apache Cordova** apps (Android and iOS).
 Built on the Bearound native SDKs: Android **3.18.0** · iOS **3.18.0** (exact pins live in `src/android/bearound.gradle` and `plugin.xml`).
 
@@ -22,7 +26,11 @@ configuration and events match those packages; the differences are listed in
 ## Table of Contents
 
 * [Features](#features)
+* [What the SDK detects](#what-the-sdk-detects)
 * [Requirements](#requirements)
+  * [Recommended setup](#recommended-setup-keep-bluetooth-and-location-on)
+  * [Support matrix](#support-matrix)
+* [Getting a business token](#getting-a-business-token)
 * [Installation](#installation)
   * [Android](#android)
   * [iOS](#ios)
@@ -30,21 +38,22 @@ configuration and events match those packages; the differences are listed in
 * [Set up with an AI agent](#set-up-with-an-ai-agent)
 * [Quick Start](#quick-start)
 * [Permissions](#permissions)
+  * [Encounter layer (device-to-device)](#encounter-layer-device-to-device)
 * [Background behavior](#background-behavior)
+  * [Google Play review (Android)](#google-play-review-android)
+  * [Background reliability (Android)](#background-reliability-android)
+  * [Detection log](#detection-log)
+  * [Testing terminated app detection](#testing-terminated-app-detection)
 * [Push notifications](#push-notifications)
 * [API](#api)
-  * [Core](#core)
-  * [Push](#push)
-  * [Error telemetry and readiness](#error-telemetry-and-readiness)
-  * [Debug notifications](#debug-notifications)
-  * [State and diagnostics](#state-and-diagnostics)
-  * [Android only](#android-only)
 * [Events](#events)
 * [Errors](#errors)
 * [Example app](#example-app)
 * [Troubleshooting](#troubleshooting)
 * [Limitations](#limitations)
 * [License](#license)
+* [Changelog](#changelog)
+* [Support](#support)
 
 ---
 
@@ -65,6 +74,24 @@ configuration and events match those packages; the differences are listed in
 
 ---
 
+## What the SDK detects
+
+The plugin detects **Bearound BLE beacons**, every hardware generation, through the native
+SDKs. A beacon is matched by any of its Bearound signatures in the advertisement:
+
+- the `0xBEAD` **service data** (major/minor, firmware, battery, motion and temperature),
+- the `0xBEAD` **manufacturer data**, or
+- the **Bearound iBeacon frame**.
+
+It also recognises other phones running a Bearound SDK nearby (see
+[Encounter layer](#encounter-layer-device-to-device)).
+
+To validate the integration end to end, test on a **physical device** with a **physical
+Bearound beacon** paired to your Control Hub account. The iOS simulator and the Android
+emulator have no usable Bluetooth radio.
+
+---
+
 ## Requirements
 
 | Component | Version |
@@ -79,6 +106,67 @@ configuration and events match those packages; the differences are listed in
 
 The Android bridge is written in Kotlin and the iOS bridge in Swift. CocoaPods must be
 installed for iOS builds.
+
+### Recommended setup: keep Bluetooth and Location on
+
+For the best detection coverage, encourage your users to keep the following on:
+
+1. **Bluetooth on.** Detection runs entirely over BLE. If Bluetooth is turned off and back
+   on, the SDK re-arms the scan by itself.
+2. **Location Services on.** Several Android manufacturers tie BLE scan delivery to the
+   system Location toggle, and on Android 11 and below it is required. On iOS, location is
+   what gives distance and survives a force-quit.
+3. **Permissions granted.** "Nearby devices" on Android 12+, and location on both
+   platforms ("Always" on iOS for the strongest background behavior).
+
+The more of these the user keeps on, the more consistently the SDK works. Nothing breaks
+when one is missing: detection degrades, it never crashes (see
+[What the plugin guarantees](#what-the-plugin-guarantees)).
+
+### Support matrix
+
+**Android**
+
+| Android version | Without the foreground service | With the foreground service | After force-stop or swipe from recents |
+| --- | --- | --- | --- |
+| 7.0 to 7.1 (API 24 to 25) | Foreground and background while the process is alive | ✅ persistent notification keeps the process scanning | ❌ |
+| 8.0 to 13 (API 26 to 33) | ✅ an OS-registered scan wakes the app when a beacon appears | ✅ recommended for reliability | ❌ force-stop cancels the scan registration |
+| 14+ (API 34+) | ✅ OS-registered scan | ✅ optional | ✅ the OS-registered scan survives both |
+
+**iOS**
+
+| | Bluetooth only | Bluetooth + Location "Always" |
+| --- | --- | --- |
+| Foreground detection | ✅ | ✅ with distance |
+| Background detection | ✅ | ✅ |
+| App terminated by **iOS** (memory or battery pressure) | ✅ | ✅ |
+| App force-quit by the **user** (swipe up in the app switcher) | ❌ | ✅ region monitoring persists |
+
+On every Android version, aggressive manufacturer battery managers can still evict the app:
+see [Background reliability](#background-reliability-android).
+
+---
+
+## Getting a business token
+
+The **business token** authenticates your app against the Bearound backend and ties every
+detection to your business. It is provisioned by the **Bearound team** together with your
+**Control Hub** account, the dashboard where registered devices and detections show up. If
+you do not have one, ask your Bearound contact or write to `contact@bearound.com`.
+
+Behavior with a wrong or missing token:
+
+- An **empty** token makes `configure()` reject with `INVALID_ARGUMENT`. The SDK stays
+  inactive and the app keeps running.
+- A **non-empty but invalid** token is not validated on the device: scanning starts
+  normally, but every upload fails. You see it as `addSyncLifecycleListener` events with
+  `success: false`, a growing `getPendingBatchCount()`, and a device that never appears in
+  the Control Hub. If nothing shows up in the Hub, check the token first.
+
+Keep the token out of version control: read it from a build-time or local configuration
+file that git ignores, as the example app does.
+
+---
 
 ## Installation
 
@@ -235,6 +323,29 @@ Notes:
 - **iOS location "Always"** is what lets iOS relaunch a terminated app when a beacon
   comes into range.
 
+### Encounter layer (device-to-device)
+
+Besides listening for beacons, every device running a Bearound SDK also **advertises a
+Bearound service** and **recognises other SDK devices nearby**, reporting those sightings in
+the regular sync. Nothing stable goes on the air: each device transmits a random identifier
+that rotates every 15 minutes, carried inside the advertisement itself. There are no
+connections between devices.
+
+| Platform | What it needs | If not granted |
+| --- | --- | --- |
+| Android 12+ | `BLUETOOTH_ADVERTISE`, part of the same "Nearby devices" dialog as the scan permission. `requestForegroundPermissions()` and `ensurePermissions()` ask for it. | The device still detects beacons and other devices, but no other device can see it. |
+| iOS | The Bluetooth permission, nothing else. | No detection at all over Bluetooth. |
+
+Notes:
+
+- The layer needs no code. It starts and stops with `startScanning()` and
+  `stopScanning()`.
+- An iPhone is fully visible to Android devices while its app is in the foreground. In the
+  background iOS restricts what an app may advertise, so Android devices may not see it.
+- On Android, a nearby SDK device also wakes the app through the same OS-registered scan
+  that beacons use.
+- It adds no second radio scan: it reuses the scan the SDK already runs.
+
 ## Background behavior
 
 `startScanning()` enables background detection on both platforms. There is no separate
@@ -271,6 +382,87 @@ background API.
 Events that fire while no page is listening (up to 50) are delivered when the page
 subscribes. For anything older, read `getPersistedLog()`: the native SDKs record every
 detection, sync and region event with the app state it happened in.
+
+### Google Play review (Android)
+
+The native SDK declares its permissions and components, and the manifest merger adds them
+to your app. Two consequences on the Play Console:
+
+- **Foreground service type.** Every app that embeds the SDK carries
+  `FOREGROUND_SERVICE_CONNECTED_DEVICE` in its merged manifest, even if it never calls
+  `enableForegroundScanning()`. With `targetSdk` 34+, Play asks you to declare each
+  foreground-service type present in the manifest, with a video showing the user-facing
+  feature that justifies it. Plan for it in your release: it surfaces at review time, not
+  at build time. If you do not use the foreground service, you can remove the permission
+  from the merged manifest and skip the declaration; the
+  [Android SDK README](https://github.com/Bearound/bearound-android-sdk#google-play-review--what-the-manifest-merge-means-for-your-app)
+  shows the manifest entry.
+- **Background location.** The SDK does not declare `ACCESS_BACKGROUND_LOCATION`. Declaring
+  it yourself puts the app through Play's background-location review, and requesting it
+  opens the system settings screen, so the plugin never requests it on its own.
+
+### Background reliability (Android)
+
+Keeping the process eligible to wake under Doze and manufacturer battery managers is the
+main field factor for reliable detection. The plugin exposes the SDK helpers:
+
+```js
+const Bearound = cordova.plugins.Bearound;
+
+if (!(await Bearound.isIgnoringBatteryOptimizations())) {
+  // Explain why first, then open the system screen where the user exempts the app.
+  await Bearound.openBatteryOptimizationSettings();
+}
+if (await Bearound.isAutostartManageable()) {
+  // Xiaomi, Huawei, Oppo, Vivo, OnePlus: the manufacturer's autostart screen.
+  await Bearound.openManufacturerAutostartSettings();
+}
+```
+
+`openBatteryOptimizationSettings()` opens the system list, not the restricted
+"ignore battery optimizations" request, so it has no Google Play policy impact. On Samsung,
+which has no autostart screen an app can open, guide the user to add the app to "Never
+sleeping apps". The per-manufacturer behavior is listed in the
+[Android SDK README](https://github.com/Bearound/bearound-android-sdk#oem-caveat-matrix).
+
+When the system kills and recreates the app process, the SDK resumes continuous scanning
+and uploads the next time the OS scan matches a beacon, on its periodic watchdog, at boot,
+or as soon as the user opens the app.
+
+### Detection log
+
+Nobody is watching the console while the app is closed. The native SDKs keep a persisted
+log for that, tagging every event with the app state it happened in:
+
+```js
+const entries = await cordova.plugins.Bearound.getPersistedLog();
+// [{ id, timestamp, state, type, detail }, ...] newest first
+await cordova.plugins.Bearound.clearPersistedLog();
+```
+
+`state` is `foreground`, `background`, `backgroundLocked` or `terminated`. The last one
+means the OS started the app with no user interface, which is the proof that detection
+worked with the app closed. The entries are on disk, so they are still there when the user
+opens the app. The `type` and `detail` strings are the same on Android and iOS, so one
+screen renders both.
+
+### Testing terminated app detection
+
+1. Install the app on a physical device and open it once.
+2. Grant the permissions and let `startScanning()` run.
+3. Close the app: swipe it away, or let the system reclaim it.
+4. Stay out of range of the beacon for about a minute, then walk back into range.
+5. Open the app and read `getPersistedLog()`: look for entries with `state: 'terminated'`.
+
+To watch it live on the lock screen during QA, turn on
+`setDebugNotificationsEnabled(true)` (see [Debug notifications](#debug-notifications)).
+
+Keep in mind:
+
+- The OS decides when to wake the app. It is not instant, and Low Power Mode or battery
+  saver reduce how often it happens.
+- iOS only relaunches an app the user force-quit when location is "Always".
+- Android only survives a swipe from recents or a force-stop on version 14+.
 
 ## Push notifications
 
@@ -575,21 +767,60 @@ ignores. For push on Android, add your own `google-services.json` as described a
 
 ## Troubleshooting
 
+### Beacons not detected
+
+1. **Are you testing with a physical Bearound beacon on a physical device?** That is the
+   supported way to validate the integration. Simulators and emulators have no usable BLE.
+2. Follow the [recommended setup](#recommended-setup-keep-bluetooth-and-location-on):
+   Bluetooth on, Location Services on, permissions granted. Check them with
+   `checkPermissions()` and `getBluetoothState()`.
+3. On Android 12+, `BLUETOOTH_SCAN` ("Nearby devices") is the permission that unlocks the
+   scan. If your manifest redeclares it, keep the `neverForLocation` flag, or scan results
+   are withheld unless location is granted.
+4. Listen to `addErrorListener`: the SDK reports why it cannot scan.
+5. On iOS, a beacon with proximity `bt` and no distance is detected over Bluetooth only.
+   Distance comes from Core Location ranging, which needs location authorized with precise
+   accuracy.
+
+### Device does not appear in the Control Hub, or sync fails
+
+1. **Check the business token.** A wrong token is not validated on the device and fails
+   every upload. See [Getting a business token](#getting-a-business-token).
+2. Check connectivity. Failed batches accumulate (`getPendingBatchCount()`) and are retried.
+3. Watch `addSyncLifecycleListener`: a `completed` event carries `success` and `error`.
+
+### No detection in the background or with the app closed
+
+1. `configure()` must run on every launch, not behind a button.
+2. Check the [support matrix](#support-matrix): a swipe from recents needs Android 14+, and
+   a force-quit on iOS needs location "Always".
+3. On Android, run the [Background reliability](#background-reliability-android) flow.
+4. On iOS, keep Background App Refresh on. Low Power Mode reduces background wake-ups.
+5. Read `getPersistedLog()` for entries with `state: 'background'` or `'terminated'`.
+
+### Push problems
+
+| Symptom | Likely cause and fix |
+| --- | --- |
+| iOS: the device has no push token | The Push Notifications capability is missing on the App ID, or another plugin hides the token. See [Push notifications](#push-notifications). |
+| iOS: a rich push arrives as plain text | The two notification extension targets are missing. See [Push notifications](#push-notifications). |
+| Android: a rich push does not show | `POST_NOTIFICATIONS` was not granted (Android 13+). Call `requestNotificationPermission()`. |
+| Android: no push at all | `google-services.json` is missing or the Google Services Gradle plugin is not enabled. |
+
+### Build problems
+
+| Symptom | Likely cause and fix |
+| --- | --- |
+| Android: the build fails resolving `bearound-android-sdk` | JitPack is unreachable, or the Kotlin and AndroidX preferences are missing from `config.xml`. See [Android](#android). |
+| iOS: `pod install` fails with a Unicode normalization error | Run the build with `LANG=en_US.UTF-8`. |
+| iOS: deployment target error on Xcode 27 | Set the deployment target to 15.0 in `config.xml` and `build.json`. See [iOS](#ios). |
+
+### Configuration and events
+
 | Symptom | Likely cause and fix |
 | --- | --- |
 | `configure` rejects with `INVALID_ARGUMENT` | The business token is missing or empty. |
-| No beacons on the iOS simulator or Android emulator | Neither has a Bluetooth radio. Use a physical device. |
-| Android: no scan results on 12+ | `BLUETOOTH_SCAN` ("Nearby devices") was denied, or your manifest redeclares it without `neverForLocation` and location is denied. Check `checkPermissions()`. |
-| Android: build fails resolving `bearound-android-sdk` | JitPack is unreachable or the Kotlin and AndroidX preferences are missing from `config.xml`. See [Android](#android). |
-| iOS: `pod install` fails with a Unicode normalization error | Run the build with `LANG=en_US.UTF-8`. |
-| iOS: build fails with a deployment target error on Xcode 27 | Set the deployment target to 15.0 in `config.xml` and `build.json`. See [iOS](#ios). |
-| iOS: beacons have proximity `bt` and no distance | Distance comes from Core Location ranging, which needs location authorized with precise accuracy. |
-| iOS: nothing happens after the app is force-quit | Expected: iOS does not relaunch an app the user removed from the app switcher until it is opened again. |
-| iOS: device has no push token | The Push Notifications capability is missing on the App ID, or another plugin hides the token. See [Push notifications](#push-notifications). |
-| iOS: rich push arrives as plain text | The two notification extension targets are missing. See [Push notifications](#push-notifications). |
-| Android: rich push does not show | `POST_NOTIFICATIONS` was not granted (Android 13+). Call `requestNotificationPermission()`. |
-| Events missing after the app was in the background | Up to 50 events are buffered for the page; read `getPersistedLog()` for the rest. |
-| Android: the "scanning" notification stays up after the process was killed and recreated | The native SDK resumes scanning from its low-power OS scan, its watchdog alarm (15 minutes) or boot, not at the instant the process is recreated. Opening the app resumes it at once. |
+| Events missing after the app was in the background | Up to 50 events are buffered for the page. Read `getPersistedLog()` for the rest. |
 
 ## Limitations
 
@@ -599,10 +830,17 @@ ignores. For push on Android, add your own `google-services.json` as described a
   included. Native crashes and errors are still reported by the native SDKs.
 - A terminated app is relaunched by the OS, not by the plugin: Android needs version 14+
   to survive a swipe from recents, and iOS does not relaunch an app the user force-quit.
-- Verified on physical devices (an iPhone and a Samsung on Android 16); what was covered
-  and what is still open is recorded in
-  [docs/DEVICE-VERIFICATION.md](docs/DEVICE-VERIFICATION.md).
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
+## Support
+
+For issues and questions, open an issue at
+https://github.com/Bearound/bearound-cordova-sdk/issues or write to
+`contact@bearound.com`.
