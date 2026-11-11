@@ -43,12 +43,15 @@ configuration and events match those packages; the differences are listed in
 * [Presence heartbeat](#presence-heartbeat)
 * [Advertising identifier (IDFA / AAID)](#advertising-identifier-idfa--aaid)
 * [Controlling what the SDK collects](#controlling-what-the-sdk-collects)
+* [Scan modes (Android)](#scan-modes-android)
 * [Background behavior](#background-behavior)
   * [Google Play review (Android)](#google-play-review-android)
   * [Background reliability (Android)](#background-reliability-android)
   * [Detection log](#detection-log)
   * [Testing terminated app detection](#testing-terminated-app-detection)
 * [Push notifications](#push-notifications)
+* [Push receipt and open measurement](#push-receipt-and-open-measurement)
+* [Rich push (images, carousel, video)](#rich-push-images-carousel-video)
 * [Configuration options](#configuration-options)
   * [Scan precision](#scan-precision)
   * [Retry queue size](#retry-queue-size)
@@ -58,7 +61,9 @@ configuration and events match those packages; the differences are listed in
 * [Events](#events)
 * [Models](#models)
 * [Errors](#errors)
+* [Error telemetry](#error-telemetry)
 * [Example app](#example-app)
+* [Best Practices](#best-practices)
 * [Troubleshooting](#troubleshooting)
 * [Limitations](#limitations)
 * [License](#license)
@@ -525,6 +530,68 @@ motion, and `collectMotionSensors: false` turns every motion source off.
 The choices are persisted with the rest of the configuration, so they survive the
 background relaunches both systems perform on the SDK's behalf.
 
+## Scan modes (Android)
+
+> On **iOS** scanning is always system-managed. These modes are **Android-only**.
+
+The SDK ships **two background-scan strategies** and you pick one per app.
+
+### At a glance
+
+| | Opportunistic *(default)* | Foreground service |
+| --- | --- | --- |
+| **Best for** | Casual presence, battery-first apps | Real-time presence |
+| **You gain** | Zero setup, no Play video, lowest battery | More reliable background detection on aggressive manufacturers |
+| **You accept** | Unpredictable latency, misses in deep background | A persistent notification and a Play demonstration video |
+
+### Mode 1: opportunistic *(default)*
+
+```js
+await cordova.plugins.Bearound.startScanning(); // no foreground service
+```
+
+The OS delivers beacons through a scan it keeps registered for the app. It keeps working
+with the app **killed**, but the system decides *when*.
+
+### Mode 2: foreground service
+
+```js
+const Bearound = cordova.plugins.Bearound;
+
+await Bearound.startScanning();
+await Bearound.enableForegroundScanning({
+  notificationTitle: 'My App',               // optional, defaults to the app name
+  notificationText: 'Bluetooth active',      // optional
+});
+
+// Later:
+await Bearound.disableForegroundScanning();
+```
+
+The service runs while the app is in the background and shows a persistent notification.
+Android and manufacturer battery controls can still stop the process: it improves
+reliability, it is not a guarantee.
+
+> ⚠️ **Google Play:** the `connectedDevice` foreground service requires a Play Console
+> declaration and a **demonstration video**. See
+> [Google Play review](#google-play-review-android).
+
+### Trade-off
+
+| | Opportunistic | Foreground service |
+| --- | --- | --- |
+| App in foreground | Continuous | Continuous |
+| App in background | Opportunistic, throttled | Improved reliability, OS-dependent |
+| Process evicted | The OS scan may wake a new process | The service may restart, OS-dependent |
+| Detection latency | Unpredictable (seconds to minutes) | Low, per scan precision |
+| Battery | Lower | Higher |
+| Persistent notification | None | Yes, mandatory |
+| Extra permission | None | `FOREGROUND_SERVICE_CONNECTED_DEVICE` |
+| **Google Play video** | Not required | Required |
+
+The periodic reconciliation task runs in both modes: see
+[Periodic reconciliation](#periodic-reconciliation).
+
 ## Background behavior
 
 `startScanning()` enables background detection on both platforms. There is no separate
@@ -736,22 +803,105 @@ To turn the SDK's automatic delegate handling off, add
 `BearoundAppDelegateProxyEnabled` = `false` to the app's `Info.plist`. You are then
 responsible for the three calls above.
 
-**Rich push on iOS** needs two app extension targets (a Notification Service Extension
-and a Notification Content Extension) using the `BearoundSDKNotificationExtensions` pod.
-A Cordova plugin cannot add extension targets, so this is a manual Xcode step, described
-in the [iOS SDK README](https://github.com/Bearound/bearound-ios-sdk#rich-push-images-carousel-video).
-Without the extensions a rich push is delivered as a regular notification with title and
-body. Targets added by hand are lost when the iOS platform is removed and added again, so
-do it from a Cordova hook: `example/hooks/ios-notification-extensions.js` adds both
-targets and their pods on every `prepare`, and can be copied into an app as is. The
-hook also survives a later `cordova plugin add`, which would otherwise put plugin files
-in an extension target. The extensions are signed like the app, so pass the team to every
-target when building:
+Rich notifications need one more step on iOS: see
+[Rich push](#rich-push-images-carousel-video).
+
+## Push receipt and open measurement
+
+For a Bearound campaign push, the SDK reports two events: **received**, when the message
+is processed on the device, and **open**, when a tap on the notification launches or
+resumes the app.
+
+**It needs no code.** The plugin installs the native handling at app launch, so both
+events are measured with the app in the foreground, in the background or closed, including
+the tap that cold-launches the app.
+
+If another push plugin consumes the notification before the SDK sees it, report from
+JavaScript with the payload that plugin hands you:
+
+```js
+const Bearound = cordova.plugins.Bearound;
+
+// When the message arrives:
+const handled = await Bearound.handleRemoteMessage(payload); // true for a Bearound push
+
+// When the user taps it, including the tap that opened the app:
+await Bearound.trackNotificationOpened(payload);
+```
+
+Each push is reported once, so calling it for a tap the SDK already measured is harmless.
+A push that only wakes the app to scan and sync is not a campaign push and is not measured.
+
+## Rich push (images, carousel, video)
+
+A Bearound push can carry images in four formats: one image (`IMAGE`), two side-by-side
+cards (`TWO_IMAGES`), a paged carousel of 2 to 5 cards (`CAROUSEL`) and a video (`PLAY`,
+with a poster image). The **native SDKs draw them**: the plugin adds no JavaScript API and
+no rendering of its own. What your app has to do differs per platform.
+
+**On a tap**, a card with an `http(s)` link opens it, a card with a deep link
+(`yourapp://...`) opens it directly, and a card without a link opens your app like a
+regular notification.
+
+### Android: nothing to add
+
+A rich push reaches Android as a data-only FCM message. The plugin's messaging service
+hands it to the SDK, which builds and posts the notification, with the app open or closed.
+
+- **Notification permission:** on Android 13+ the app must hold `POST_NOTIFICATIONS`. Call
+  `requestNotificationPermission()`.
+- **Channel and icon:** the SDK uses your FCM default channel and icon when the manifest
+  declares them, otherwise its own channel and the app icon.
+- **Video:** a notification cannot host a video player, so the expanded notification shows
+  frames of the video and a tap opens the SDK's own full-screen player.
+- If an image cannot be downloaded, the notification falls back to title and body.
+
+If you turned the plugin's messaging service off (`BEAROUND_FCM_SERVICE_ENABLED=false`),
+forward every data message to the SDK from your own service or from JavaScript, in the
+foreground too, or a rich push received with the app open never shows.
+
+### iOS: two extension targets, added by a hook
+
+iOS only draws images through **app extensions that your app ships**: a Notification
+Service Extension, which downloads the image or the video and attaches it, and a
+Notification Content Extension, which draws the image, two-card and carousel layouts. Both
+use the `BearoundSDKNotificationExtensions` pod.
+
+**Without them nothing breaks:** the device still gets a standard notification with title
+and body.
+
+A Cordova plugin cannot add targets to the app project, and targets added by hand in Xcode
+are lost when the iOS platform is removed and added again. So add them from a Cordova
+hook. `example/hooks/ios-notification-extensions.js` does it on every `prepare`, and can
+be copied into an app as is:
+
+```xml
+<platform name="ios">
+    <hook type="after_prepare" src="hooks/ios-notification-extensions.js" />
+</platform>
+```
+
+What the hook does:
+
+1. Creates the `NotificationService` and `NotificationContent` targets, each with a
+   one-line class that subclasses the SDK's.
+2. Declares the categories `BEAROUND_IMAGE`, `BEAROUND_TWO_IMAGES` and `BEAROUND_CAROUSEL`
+   in the content extension, with user interaction enabled so the cards are tappable.
+   `BEAROUND_PLAY` is left out on purpose: the system player shows the attached video.
+3. Adds both targets to the `Podfile` with the pod pinned to the native SDK version, and
+   runs `pod install`.
+4. Survives a later `cordova plugin add`, which would otherwise put plugin files in an
+   extension target.
+
+The extensions are signed like the app, so pass the team to every target when building:
 
 ```bash
 cordova build ios --device --developmentTeam=TEAMID --automaticProvisioning \
   --buildFlag="DEVELOPMENT_TEAM=TEAMID" --buildFlag="IPHONEOS_DEPLOYMENT_TARGET=15.0"
 ```
+
+To add the targets by hand instead, follow the
+[iOS SDK README](https://github.com/Bearound/bearound-ios-sdk#rich-push-images-carousel-video).
 
 ## Configuration options
 
@@ -1053,6 +1203,25 @@ None of these stops the app.
   posted). The `collect...` options go further and stop the SDK from reading a signal even
   when the permission is granted.
 
+## Error telemetry
+
+The native SDKs ship lightweight, isolated error telemetry, so integration problems can be
+spotted and fixed quickly. It needs no configuration.
+
+- **What is reported:** errors that originate inside the Bearound SDK, with the error
+  details and a snapshot of the permission state, read without prompting. Errors from your
+  app or from other plugins are never touched.
+- **It never breaks your app:** delivery is fire-and-forget and a failure to report is
+  dropped silently.
+- **Scope:** the telemetry is native. The plugin's JavaScript layer installs no global
+  error handler and reports nothing by itself.
+
+Opt out at any time (the default is on):
+
+```js
+await cordova.plugins.Bearound.setErrorReportingEnabled(false);
+```
+
 ## Example app
 
 `example/` is a Cordova app that mirrors the native BeAroundScan example apps: the same
@@ -1081,6 +1250,25 @@ npm run android              # or: npm run ios
 Set your business token in the settings sheet (it is stored on the device), or prefill it
 by copying `www/js/local-config.example.js` to `www/js/local-config.js`, which git
 ignores. For push on Android, add your own `google-services.json` as described above.
+
+## Best Practices
+
+* **Call `configure()` on every launch**, right after `deviceready`, not behind a button
+  or a screen. The background machinery is only armed in a process where it ran.
+* **Ask for permissions with context.** Explain why first, then call
+  `ensurePermissions()`. Never block the app on a denial: the methods resolve with the
+  status.
+* **Register listeners before `configure()`**, so no early event is missed.
+* **Keep one clear lifecycle.** Avoid starting and stopping the scan in sequence;
+  `startScanning()` once is enough, and it persists across relaunches.
+* **Always validate on a physical device** with a physical beacon. Simulators and
+  emulators have no usable Bluetooth.
+* **Android:** pick the [scan mode](#scan-modes-android) deliberately, and run the
+  [Background reliability](#background-reliability-android) flow on aggressive
+  manufacturers.
+* **iOS:** keep the Push Notifications capability on the App ID, and ask for location
+  "Always" if the app must survive a force-quit.
+* **Keep the business token out of version control.**
 
 ## Troubleshooting
 
@@ -1120,7 +1308,7 @@ ignores. For push on Android, add your own `google-services.json` as described a
 | Symptom | Likely cause and fix |
 | --- | --- |
 | iOS: the device has no push token | The Push Notifications capability is missing on the App ID, or another plugin hides the token. See [Push notifications](#push-notifications). |
-| iOS: a rich push arrives as plain text | The two notification extension targets are missing. See [Push notifications](#push-notifications). |
+| iOS: a rich push arrives as plain text | The two notification extension targets are missing. See [Rich push](#rich-push-images-carousel-video). |
 | Android: a rich push does not show | `POST_NOTIFICATIONS` was not granted (Android 13+). Call `requestNotificationPermission()`. |
 | Android: no push at all | `google-services.json` is missing or the Google Services Gradle plugin is not enabled. |
 
