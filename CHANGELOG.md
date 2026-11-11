@@ -1,23 +1,22 @@
 # Changelog
 
-Versions follow the native Bearound SDK the plugin is built on.
+Major and minor versions follow the native Bearound SDK the plugin is built on. A patch
+release may carry changes of the plugin alone.
 
-## Unreleased
+## 3.18.1
+
+Documentation only. Same code and same native SDKs (3.18.0) as 3.18.0.
 
 - README: dedicated sections for Wi-Fi observations, presence heartbeat, advertising
   identifier, controlling what the SDK collects, configuration options (scan precision,
   retry queue, user identity, periodic reconciliation) and models.
-- The npm package and plugin id are now `@bearound/cordova-sdk`, in line with the other
-  Bearound SDK packages. `@bearound/cordova-plugin` is replaced by it; the JavaScript API
-  (`cordova.plugins.Bearound`) is unchanged.
 - README reorganised on the model of the native SDK READMEs: what the SDK detects,
   recommended setup, support matrix, business token, encounter layer, Google Play review,
   background reliability, detection log and troubleshooting by symptom.
-- The device verification record is no longer shipped with the package.
 
 ## 3.18.0
 
-First release. Built on the native Bearound SDK 3.18.0 for Android and iOS.
+First release. Published as `@bearound/cordova-sdk`. Built on the native Bearound SDK 3.18.0 for Android and iOS.
 
 - Promise-based JavaScript API with TypeScript types, exposed as
   `cordova.plugins.Bearound`.
