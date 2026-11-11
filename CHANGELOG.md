@@ -3,7 +3,9 @@
 Major and minor versions follow the native Bearound SDK the plugin is built on. A patch
 release may carry changes of the plugin alone.
 
-## Unreleased
+## 3.18.2
+
+Documentation only. Same code and same native SDKs (3.18.0) as 3.18.0.
 
 - README: sections for scan modes (Android), push receipt and open measurement, rich
   push, error telemetry and best practices, as in the React Native and Flutter READMEs.
