@@ -1,4 +1,4 @@
-// Type definitions for @bearound/cordova-plugin.
+// Type definitions for @bearound/cordova-sdk.
 // The API is exposed at runtime as `cordova.plugins.Bearound` after `deviceready`.
 
 export type ScanPrecisionValue = 'high' | 'medium' | 'low';

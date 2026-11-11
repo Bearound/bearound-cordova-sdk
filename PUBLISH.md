@@ -1,4 +1,4 @@
-# Release guide: @bearound/cordova-plugin
+# Release guide: @bearound/cordova-sdk
 
 The plugin version follows the native Bearound SDK it is built on.
 

@@ -1,10 +1,10 @@
-# 🐻 Bearound Cordova Plugin
+# 🐻 Bearound Cordova SDK
 
-[![npm](https://img.shields.io/npm/v/@bearound/cordova-plugin.svg)](https://www.npmjs.com/package/@bearound/cordova-plugin)
+[![npm](https://img.shields.io/npm/v/@bearound/cordova-sdk.svg)](https://www.npmjs.com/package/@bearound/cordova-sdk)
 [![Platforms](https://img.shields.io/badge/platforms-Android%20%7C%20iOS-brightgreen.svg)](#requirements)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Official plugin to integrate **Bearound's** secure BLE beacon detection into **Apache Cordova** apps (Android and iOS).
+Official SDK to integrate **Bearound's** secure BLE beacon detection into **Apache Cordova** apps (Android and iOS).
 Built on the Bearound native SDKs: Android **3.18.0** · iOS **3.18.0** (exact pins live in `src/android/bearound.gradle` and `plugin.xml`).
 
 > ✅ Promise-based JavaScript API with TypeScript types. Detection, background sync and push run natively, so they keep working when no web page is loaded.
@@ -171,7 +171,7 @@ file that git ignores, as the example app does.
 ## Installation
 
 ```bash
-cordova plugin add @bearound/cordova-plugin
+cordova plugin add @bearound/cordova-sdk
 ```
 
 To install straight from the repository instead of npm:
@@ -211,7 +211,7 @@ Set the permission texts your users will read. Apple reviews the wording against
 app does, so replace the generic defaults:
 
 ```bash
-cordova plugin add @bearound/cordova-plugin \
+cordova plugin add @bearound/cordova-sdk \
   --variable BEAROUND_BLUETOOTH_USAGE_DESCRIPTION="..." \
   --variable BEAROUND_LOCATION_WHEN_IN_USE_USAGE_DESCRIPTION="..." \
   --variable BEAROUND_LOCATION_ALWAYS_USAGE_DESCRIPTION="..."
@@ -291,7 +291,7 @@ document.addEventListener('deviceready', async () => {
 With TypeScript:
 
 ```ts
-import type { BearoundPlugin, Beacon } from '@bearound/cordova-plugin';
+import type { BearoundPlugin, Beacon } from '@bearound/cordova-sdk';
 
 const Bearound: BearoundPlugin = cordova.plugins.Bearound;
 Bearound.addBeaconsListener((beacons: Beacon[]) => {});
