@@ -5,6 +5,9 @@ release may carry changes of the plugin alone.
 
 ## Unreleased
 
+- Example app on Android: the location row no longer says "background does not work"
+  when location is granted while in use. It now uses the wording of the native Android
+  example, with a separate row for background location (which only gates Wi-Fi).
 - Agent prompt and README corrected after running the prompt on a blank app: step order,
   a concrete place for the business token, the permission result fields, apps without
   push, the foreground-service permission and the plugin versus native SDK version.

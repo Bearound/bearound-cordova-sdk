@@ -11,6 +11,7 @@
   var NO_VALUE = '-';
   var Bearound;
   var isIos = false;
+  var isAndroid = false;
 
   var state = {
     statusMessage: 'Pronto',
@@ -163,6 +164,14 @@
 
   function locationStatus() {
     var permissions = state.permissions;
+    // Android: same wording as the native Android example. Beacon detection does not
+    // depend on background location there, so "when in use" is the full grant.
+    if (isAndroid) {
+      if (!permissions) return { text: 'Verificando...', tone: 'secondary' };
+      return permissions.fineLocation
+        ? { text: 'Concedida (recomendado)', tone: 'green' }
+        : { text: 'Negada: cobertura reduzida no 12+, obrigatória no Android 11 ou anterior', tone: 'red' };
+    }
     var raw = String(state.authorization || '').toLowerCase();
     var text;
     var tone;
@@ -190,6 +199,16 @@
       text += ' | Precisa: OFF (beacons CL desabilitados)';
     }
     return { text: text, tone: tone };
+  }
+
+  // Android only. Background location gates Wi-Fi observations once the app leaves the
+  // screen, never beacon detection.
+  function backgroundLocationStatus() {
+    var permissions = state.permissions;
+    if (!permissions) return { text: 'Verificando...', tone: 'secondary' };
+    return permissions.backgroundLocation
+      ? { text: 'Concedida: Wi-Fi continua em background', tone: 'green' }
+      : { text: 'Não concedida: Wi-Fi só com o app na tela', tone: 'secondary' };
   }
 
   function bluetoothStatus() {
@@ -538,6 +557,8 @@
   function renderHeader() {
     $('status-message').textContent = state.statusMessage;
     setStatus('perm-location', locationStatus());
+    $('perm-background-row').hidden = !isAndroid;
+    if (isAndroid) setStatus('perm-background', backgroundLocationStatus());
     setStatus('perm-bluetooth', bluetoothStatus());
     setStatus('perm-notifications', notificationStatus());
 
@@ -1018,6 +1039,7 @@
   document.addEventListener('deviceready', function () {
     Bearound = cordova.plugins.Bearound;
     isIos = cordova.platformId === 'ios';
+    isAndroid = cordova.platformId === 'android';
     loadSettings();
     bind();
     subscribe();
