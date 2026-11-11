@@ -51,8 +51,7 @@ Simulator and emulator runs do not count here: neither has a Bluetooth radio.
 ### Samsung Galaxy A16 (SM-A166M), Android 16 (API 36), 2026-11-11, debug build (cordova-android 15.1.0, native SDK 3.18.0)
 
 The first part of the run was offline (no Wi-Fi, no mobile data); registration, sync,
-background and process death were run after Wi-Fi was turned on. Beacon detection, mesh
-peer detection and push are still open, as the last rows say.
+background and process death were run after Wi-Fi was turned on. Detection of a physical beacon and push are still open, as the last rows say.
 
 | Check | Result | Evidence |
 | --- | --- | --- |
@@ -71,7 +70,9 @@ peer detection and push are still open, as the last rows say.
 | Process killed (kill -9) | Partial | A new process was up 3 s later with the plugin's process-start wiring and the foreground service running. Scanning and the sync timer did not resume in the following 95 s: the SDK only restarts them from its kernel scan, its watchdog alarm (15 min) or boot, exactly as in a native app |
 | Process killed by a system WebView update | Pass | Android recreated the process for the foreground service without any user action |
 | Beacon detection | Not run | No Bearound signal near this phone: the native example on the same device also had zero scan results |
-| Detecting another phone through the mesh | Not run | `No beacons or peers`; no second phone with the SDK open nearby |
+| Detecting another phone through the mesh | Pass | An iPhone running the native iOS example in the foreground next to the phone: the Bluetooth stack counted 68 matches on the iBeacon filter and 25 on the mesh service filter, the SDK logged `No new beacons, syncing encounter batch` and `Successfully sent 1 beacon(s)` |
+| iPhone in the background or locked | Not detected (expected) | With the iPhone locked every scan filter stayed at zero matches. iOS only emits the virtual beacon and a filterable mesh service UUID in the foreground |
+| Process killed with a peer nearby | Partial | New process 2 s after `kill -9`, mesh restarted, and the peer kept arriving through the OS scan (349 results in 3 minutes, app in background). No upload happened in those 3 minutes: the sync timer is not re-armed in the revived process. Opening the app armed it and the encounter was sent on the next cycle |
 | Push | Not run | Needs a `google-services.json` |
 
 ## Environment
