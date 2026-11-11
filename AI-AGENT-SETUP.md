@@ -105,8 +105,8 @@ Guardrails, follow strictly:
   permission prompts at launch beyond `ensurePermissions()`.
 - Never request background location automatically on Android: it opens the system
   settings screen.
-- BLE does not work on the iOS simulator or the Android emulator. Do not claim detection
-  works from a simulator run.
+- BLE needs a physical device: the iOS simulator and the Android emulator have no
+  Bluetooth radio. Validate detection on a device, never from a simulator run.
 - STOP and hand me click-by-click steps for anything only a human can do: the Push
   Notifications and Access Wi-Fi Information capabilities on the App ID, the signing
   team, google-services.json, on-device grants (location "Always", Bluetooth, Background

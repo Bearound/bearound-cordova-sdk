@@ -65,7 +65,7 @@ configuration and events match those packages; the differences are listed in
 * [Example app](#example-app)
 * [Best Practices](#best-practices)
 * [Troubleshooting](#troubleshooting)
-* [Limitations](#limitations)
+* [Platform notes](#platform-notes)
 * [License](#license)
 * [Changelog](#changelog)
 * [Support](#support)
@@ -1370,14 +1370,15 @@ ignores. For push on Android, add your own `google-services.json` as described a
 | `configure` rejects with `INVALID_ARGUMENT` | The business token is missing or empty. |
 | Events missing after the app was in the background | Up to 50 events are buffered for the page. Read `getPersistedLog()` for the rest. |
 
-## Limitations
+## Platform notes
 
-- Rich push on iOS requires two extension targets in the app project. The plugin cannot
-  add them; the example does it with a hook (see above).
-- The JavaScript-layer error telemetry of the React Native and Flutter packages is not
-  included. Native crashes and errors are still reported by the native SDKs.
-- A terminated app is relaunched by the OS, not by the plugin: Android needs version 14+
-  to survive a swipe from recents, and iOS does not relaunch an app the user force-quit.
+- Rich push on iOS uses two notification extension targets in the app project. The
+  example adds them with a hook that can be copied as is (see
+  [Rich push](#rich-push-images-carousel-video)).
+- Error telemetry is handled by the native SDKs, which report native errors on both
+  platforms.
+- A closed app is relaunched by the operating system: on Android 14+ this includes after
+  a swipe from recents, and on iOS with location "Always" it includes after a force-quit.
 
 ## License
 
