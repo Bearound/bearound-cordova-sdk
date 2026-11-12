@@ -5,6 +5,10 @@ release may carry changes of the plugin alone.
 
 ## Unreleased
 
+- README: sections reviewed against the native Android and iOS READMEs and the React Native
+  and Flutter ones: permission results, Wi-Fi observations, scan precision per platform,
+  rich push limits, error telemetry, and added detail across background behavior and
+  troubleshooting.
 - README: the "What the SDK detects" section uses the wording of the native Android SDK
   README.
 
