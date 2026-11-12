@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Official SDK to integrate **Bearound's** secure BLE beacon detection into **Apache Cordova** apps (Android and iOS).
-Built on the Bearound native SDKs: Android **3.18.0** · iOS **3.18.0** (exact pins live in `src/android/bearound.gradle` and `plugin.xml`).
+Built on the Bearound native SDKs: Android **3.18.1** · iOS **3.18.0** (exact pins live in `src/android/bearound.gradle` and `plugin.xml`).
 
 > ✅ Promise-based JavaScript API with TypeScript types. Detection, background sync and push run natively, so they keep working when no web page is loaded.
 
@@ -117,7 +117,7 @@ emulator have no usable Bluetooth radio.
 | Android | minSdk 24 (cordova-android default; the native SDK supports 23) |
 | iOS | 13.0 or newer; 15.0 or newer when building with Xcode 27 |
 | Node.js | 20.17 or newer |
-| Native Bearound SDK | Android 3.18.0 (JitPack), iOS 3.18.0 (CocoaPods) |
+| Native Bearound SDK | Android 3.18.1 (JitPack), iOS 3.18.0 (CocoaPods) |
 
 The plugin version follows the native SDK in its major and minor numbers; its patch number
 can be ahead (documentation or bridge-only releases). `getSdkVersion()` returns the native

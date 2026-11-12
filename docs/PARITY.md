@@ -1,7 +1,8 @@
 # Parity with the React Native and Flutter packages
 
 Reference versions: `@bearound/react-native-sdk` 3.18.1 and `bearound_flutter_sdk` 3.18.0,
-both on native SDK 3.18.0 (Android and iOS). This plugin targets the same native SDKs.
+both on native SDK 3.18.0 (Android and iOS). This plugin targets native Android 3.18.1 and
+native iOS 3.18.0.
 
 Legend: **Same** means the same name, arguments and result as the React Native package.
 Every difference is written out; nothing is left out without an entry here.

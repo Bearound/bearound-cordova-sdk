@@ -2,7 +2,7 @@
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
         xmlns:android="http://schemas.android.com/apk/res/android"
         id="@bearound/cordova-sdk"
-        version="3.18.3">
+        version="3.18.4">
 
   <name>Bearound</name>
   <description>Bearound SDK for Cordova: BLE beacon detection, background sync and push on Android and iOS.</description>
