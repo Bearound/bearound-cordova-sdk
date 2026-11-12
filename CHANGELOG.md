@@ -3,7 +3,9 @@
 Major and minor versions follow the native Bearound SDK the plugin is built on. A patch
 release may carry changes of the plugin alone.
 
-## Unreleased
+## 3.18.5
+
+Documentation release. Same native SDKs as 3.18.4 (Android 3.18.1, iOS 3.18.0).
 
 - README: sections reviewed against the native Android and iOS READMEs and the React Native
   and Flutter ones: permission results, Wi-Fi observations, scan precision per platform,
