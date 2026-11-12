@@ -91,19 +91,18 @@ configuration and events match those packages; the differences are listed in
 
 ## What the SDK detects
 
-The plugin detects **Bearound BLE beacons**, every hardware generation, through the native
-SDKs. A beacon is matched by any of its Bearound signatures in the advertisement:
+The SDK detects **Bearound BLE beacons**, every hardware generation. Detection matches any
+of the beacon's Bearound signatures in the advertisement:
 
-- the `0xBEAD` **service data** (major/minor, firmware, battery, motion and temperature),
+- the `0xBEAD` **service data** (11-byte payload with major/minor, firmware, battery, motion
+  and temperature),
 - the `0xBEAD` **manufacturer data**, or
-- the **Bearound iBeacon frame**.
+- the **Bearound iBeacon frame**, which also covers beacons that advertise the sensor
+  payload only in the scan response (their identity is picked up from the primary
+  advertisement, and battery/temperature fill in as soon as a full frame is captured).
 
-It also recognises other phones running a Bearound SDK nearby (see
-[Encounter layer](#encounter-layer-device-to-device)).
-
-To validate the integration end to end, test on a **physical device** with a **physical
-Bearound beacon** paired to your Control Hub account. The iOS simulator and the Android
-emulator have no usable Bluetooth radio.
+To validate the integration end to end, test with a **physical Bearound beacon** paired to
+your Control Hub account.
 
 ---
 

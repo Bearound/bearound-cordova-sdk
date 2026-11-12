@@ -3,6 +3,11 @@
 Major and minor versions follow the native Bearound SDK the plugin is built on. A patch
 release may carry changes of the plugin alone.
 
+## Unreleased
+
+- README: the "What the SDK detects" section uses the wording of the native Android SDK
+  README.
+
 ## 3.18.4
 
 Built on native Android SDK 3.18.1 and native iOS SDK 3.18.0.
