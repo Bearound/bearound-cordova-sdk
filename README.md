@@ -137,9 +137,11 @@ For the best detection coverage, encourage your users to keep the following on:
 3. **Permissions granted.** "Nearby devices" on Android 12+, and location on both
    platforms ("Always" on iOS for the strongest background behavior).
 
-The more of these the user keeps on, the more consistently the SDK works. Nothing breaks
-when one is missing: detection degrades, it never crashes (see
-[What the plugin guarantees](#what-the-plugin-guarantees)).
+In short: the more of these the user keeps on, the better and more consistently the SDK
+works. When one is missing, detection is reduced or paused and the app keeps running (see
+[What the plugin guarantees](#what-the-plugin-guarantees)). On aggressive Android ROMs
+(Xiaomi/HyperOS, Huawei, Oppo, Vivo…) also run the
+[Background reliability](#background-reliability-android) flow.
 
 ### Support matrix
 
@@ -160,6 +162,9 @@ when one is missing: detection degrades, it never crashes (see
 | App terminated by **iOS** (memory or battery pressure) | ✅ | ✅ |
 | App force-quit by the **user** (swipe up in the app switcher) | ❌ | ✅ region monitoring persists |
 
+On iOS 14+, turning Precise Location off disables the location path entirely; Bluetooth
+detection is unaffected.
+
 On every Android version, aggressive manufacturer battery managers can still evict the app:
 see [Background reliability](#background-reliability-android).
 
@@ -177,7 +182,7 @@ Behavior with a wrong or missing token:
 - An **empty** token makes `configure()` reject with `INVALID_ARGUMENT`. The SDK stays
   inactive and the app keeps running.
 - A **non-empty but invalid** token is not validated on the device: scanning starts
-  normally, but every upload fails. You see it as `addSyncLifecycleListener` events with
+  normally, but every upload fails with HTTP 401. You see it as `addSyncLifecycleListener` events with
   `success: false`, a growing `getPendingBatchCount()`, and a device that never appears in
   the Control Hub. If nothing shows up in the Hub, check the token first.
 
@@ -345,8 +350,8 @@ create, and do not call `configure()` when the value is missing.
 All of them resolve with the current status. A denied permission is a resolved result,
 never a rejection, and never stops the app.
 
-`checkPermissions()`, `requestForegroundPermissions()`, `requestBackgroundLocation()` and
-`ensurePermissions()` resolve with the same object:
+`checkPermissions()`, `requestForegroundPermissions()` and `ensurePermissions()` resolve
+with the same object:
 
 | Field | Android | iOS |
 | --- | --- | --- |
@@ -358,8 +363,8 @@ never a rejection, and never stops the app.
 | `notifications` | Notifications enabled for the app | Notifications authorized |
 | `backgroundLocation` | `ACCESS_BACKGROUND_LOCATION` granted | Location is "Always" |
 
-`requestNotificationPermission()` and `checkNotificationPermission()` resolve with a
-boolean.
+`requestBackgroundLocation()`, `requestNotificationPermission()` and
+`checkNotificationPermission()` resolve with a boolean.
 
 Notes:
 
@@ -369,10 +374,10 @@ Notes:
 - **Android background location** is not declared by the SDK and is not needed for
   beacon detection. Declare `ACCESS_BACKGROUND_LOCATION` yourself only if you want Wi-Fi
   observations while the app is in the background (it carries a Google Play review).
-- **iOS Bluetooth** has no request API. The system prompt appears the first time
-  scanning starts.
-- **iOS location "Always"** is what lets iOS relaunch a terminated app when a beacon
-  comes into range.
+- **iOS Bluetooth** has no request API. iOS shows its own Bluetooth prompt the first time
+  the SDK creates its Bluetooth manager, which can be as early as the first launch.
+- **iOS location "Always"** is what lets iOS relaunch the app after the user force-quit
+  it. Bluetooth alone already covers an app terminated by iOS.
 
 ### Encounter layer (device-to-device)
 
@@ -391,8 +396,14 @@ Notes:
 
 - The layer needs no code. It starts and stops with `startScanning()` and
   `stopScanning()`.
-- An iPhone is fully visible to Android devices while its app is in the foreground. In the
-  background iOS restricts what an app may advertise, so Android devices may not see it.
+- In the foreground an iOS device also emits an iBeacon-format frame with a reserved major
+  (`65535`), so nearby devices can react to its proximity. That frame is never reported as
+  a beacon detection.
+- On Android, an install that already holds `BLUETOOTH_SCAN` may skip the app's permission
+  step: request `BLUETOOTH_ADVERTISE` when it is missing. It is granted with no extra
+  dialog once the group is allowed, and `ensurePermissions()` asks for it.
+- It adds no data-safety category: the layer transmits only a random rotating identifier,
+  with no personal data on the air.
 - On Android, a nearby SDK device also wakes the app through the same OS-registered scan
   that beacons use.
 - It adds no second radio scan: it reuses the scan the SDK already runs.
@@ -401,17 +412,22 @@ Notes:
 
 Alongside each beacon sighting the SDK reports the **access points visible at that moment**.
 
-**No network name is used as identity.** What travels is a one-way hash of the access
-point's hardware address, canonicalised so the same router yields the same identifier on
+**No network name is used as identity.** What identifies an access point is a one-way hash
+of its hardware address, canonicalised so the same router yields the same identifier on
 both platforms.
 
+The payload also carries the network name (`ssid`). Because a network name identifies a
+place, and at home a household, it is personal data: reflect it in your own privacy policy,
+or pass `collectWifi: false` to send no Wi-Fi data at all. Networks whose name ends in
+`_nomap` are dropped on the device.
+
 Collection is on by default, but data only exists when the app holds the required
-permissions. A missing permission produces empty Wi-Fi observations, not an error:
+permissions. Without them the Wi-Fi observations are reduced or empty, with no error:
 
 | Platform | What it reports | What you must do |
 | --- | --- | --- |
 | **Android** | The connected access point **and its neighbours**, with RSSI | Grant precise location (`ACCESS_FINE_LOCATION`) and keep system Location on. `requestForegroundPermissions()` and `ensurePermissions()` ask for it. |
-| **iOS** | Only the **connected** access point, without RSSI (there is no public API for neighbours) | Enable the **Access Wi-Fi Information** capability on your App ID. The plugin already adds the entitlement to the app. |
+| **iOS** | Only the **connected** access point, without RSSI (there is no public API for neighbours) | Enable the **Access Wi-Fi Information** capability on your App ID (the plugin already adds the entitlement to the app) and have location authorized: iOS does not reveal the access point without it. |
 
 Nothing degrades without them: the field is omitted and every other feature behaves the
 same.
@@ -430,8 +446,8 @@ same.
 > detection is **not** affected either way.
 
 That is why the plugin never asks for background location on its own: on Android it is a
-permission with a Google Play policy review, and requesting it opens the system settings
-screen. If your app needs Wi-Fi observations in the background, declare the permission in
+permission with a Google Play policy review and a demonstration video, and requesting it
+opens the system settings screen. If your app needs Wi-Fi observations in the background, declare the permission in
 your `config.xml` and ask for it explicitly, after foreground location was granted:
 
 ```xml
@@ -446,12 +462,20 @@ The `android:` attribute needs `xmlns:android="http://schemas.android.com/apk/re
 on the `<widget>` element of your `config.xml`.
 
 ```js
-const status = await cordova.plugins.Bearound.requestBackgroundLocation();
-// status.backgroundLocation tells you the outcome
+const granted = await cordova.plugins.Bearound.requestBackgroundLocation();
+// true when background location is granted
 ```
 
 If the manifest does not declare the permission, the call rejects with
 `PERMISSION_NOT_DECLARED` instead of prompting.
+
+### Wi-Fi visit matching
+
+The SDK can also detect a visit at a place through the Wi-Fi networks around the device, on
+places configured for it. Visits are reported as ordinary visit events. It uses the
+permissions described above and requests nothing new; without background location it works
+only while the app is in the foreground. `collectWifi: false` or `collectLocation: false`
+switch it off.
 
 ## Presence heartbeat
 
@@ -509,8 +533,9 @@ without prompting, use `getTrackingAuthorizationStatus()`.
 
 **Android: you opt in from your app.** The SDK does not declare the `AD_ID` permission and
 the plugin does not link Play Services' advertising library. To share the id, add
-`com.google.android.gms:play-services-ads-identifier` to your Android build; its manifest
-declares `com.google.android.gms.permission.AD_ID`. Without `AD_ID`, from `targetSdk` 33
+`com.google.android.gms:play-services-ads-identifier:18.2.0` to your Android build. Version
+18.x declares `com.google.android.gms.permission.AD_ID` in its own manifest; if your app
+gets Play Services another way, declare the permission in your own manifest. Without `AD_ID`, from `targetSdk` 33
 the platform returns a zeroed id and the SDK reports none. There is no runtime prompt: the
 user's choice lives in system settings.
 
@@ -551,7 +576,7 @@ never read from the platform.
 | --- | --- | --- |
 | `collectAdvertisingId: false` | The advertising identifier and the tracking status | iOS: `requestTrackingAuthorization()` shows no prompt and only reports the current status. Android never queries Play Services for the id. |
 | `collectLocation: false` | The device's coordinates | The location permission status is still reported: it says what the user granted, not where they are. |
-| `collectWifi: false` | The Wi-Fi access points and the connected network | No Wi-Fi read is issued at all. |
+| `collectWifi: false` | The Wi-Fi access points and the connected network, including the network name | No Wi-Fi read is issued at all. |
 
 **Beacon detection is never affected.** With `collectLocation: false` the SDK still wakes,
 detects and reports beacons; it stops saying where the device was.
@@ -589,6 +614,9 @@ await cordova.plugins.Bearound.startScanning(); // no foreground service
 The OS delivers beacons through a scan it keeps registered for the app. It keeps working
 with the app **killed**, but the system decides *when*.
 
+To drop the Play declaration entirely, also remove the foreground-service permission the
+native SDK adds: see [Google Play review](#google-play-review-android).
+
 ### Mode 2: foreground service
 
 ```js
@@ -609,7 +637,8 @@ Android and manufacturer battery controls can still stop the process: it improve
 reliability, it is not a guarantee.
 
 > ⚠️ **Google Play:** the `connectedDevice` foreground service requires a Play Console
-> declaration and a **demonstration video**. See
+> declaration and a **demonstration video**. In the declaration, describe the feature as
+> reading data from external Bluetooth devices. See
 > [Google Play review](#google-play-review-android).
 
 ### Trade-off
@@ -659,7 +688,8 @@ background API.
 - It also wires background fetch and background upload completion on the app delegate.
   If your app delegate already implements those methods, yours is still called.
 - Region monitoring wakes a terminated app when location is "Always". An app the user
-  force-quit from the app switcher is not relaunched by iOS until it is opened again.
+  force-quit from the app switcher is relaunched only through region monitoring, which
+  needs location "Always".
 
 Events that fire while no page is listening (up to 50) are delivered when the page
 subscribes. For anything older, read `getPersistedLog()`: the native SDKs record every
@@ -676,12 +706,15 @@ to your app. Two consequences on the Play Console:
   foreground-service type present in the manifest, with a video showing the user-facing
   feature that justifies it. Plan for it in your release: it surfaces at review time, not
   at build time. If you do not use the foreground service, you can remove the permission
-  from the merged manifest and skip the declaration; the
+  from the merged manifest and skip the declaration (after removing it, do not call the
+  foreground-service methods, because the service cannot start without it); the
   [Android SDK README](https://github.com/Bearound/bearound-android-sdk#google-play-review--what-the-manifest-merge-means-for-your-app)
   shows the manifest entry.
 - **Background location.** The SDK does not declare `ACCESS_BACKGROUND_LOCATION`. Declaring
   it yourself puts the app through Play's background-location review, and requesting it
   opens the system settings screen, so the plugin never requests it on its own.
+- **Data Safety.** If your app requests the location permission, declare **Location** in
+  the Play Data Safety form.
 
 ### Background reliability (Android)
 
@@ -707,9 +740,8 @@ which has no autostart screen an app can open, guide the user to add the app to 
 sleeping apps". The per-manufacturer behavior is listed in the
 [Android SDK README](https://github.com/Bearound/bearound-android-sdk#oem-caveat-matrix).
 
-When the system kills and recreates the app process, the SDK resumes continuous scanning
-and uploads the next time the OS scan matches a beacon, on its periodic watchdog, at boot,
-or as soon as the user opens the app.
+The SDK also self-heals at runtime: scan clients that stop are revived by its watchdog, and
+turning Bluetooth off and on re-arms everything immediately.
 
 ### Detection log
 
@@ -718,15 +750,15 @@ log for that, tagging every event with the app state it happened in:
 
 ```js
 const entries = await cordova.plugins.Bearound.getPersistedLog();
-// [{ id, timestamp, state, type, detail }, ...] newest first
+// [{ id, timestamp, state, type, detail }, ...] newest first, up to 500 entries
 await cordova.plugins.Bearound.clearPersistedLog();
 ```
 
 `state` is `foreground`, `background`, `backgroundLocked` or `terminated`. The last one
 means the OS started the app with no user interface, which is the proof that detection
 worked with the app closed. The entries are on disk, so they are still there when the user
-opens the app. The `type` and `detail` strings are the same on Android and iOS, so one
-screen renders both.
+opens the app. The `type` and `detail` strings are the same on Android and iOS (`Scan`,
+`Background`, `Região`, `Sync OK`, `Sync falhou`), so one screen renders both.
 
 ### Testing terminated app detection
 
@@ -744,6 +776,8 @@ Keep in mind:
 - The OS decides when to wake the app. It is not instant, and Low Power Mode or battery
   saver reduce how often it happens.
 - iOS only relaunches an app the user force-quit when location is "Always".
+- On iOS keep Background App Refresh on. A wake-up typically takes 10 to 30 seconds in the
+  background.
 - Android only survives a swipe from recents or a force-stop on version 14+.
 
 ## Push notifications
@@ -754,6 +788,9 @@ two cards, carousel, video).
 
 A Cordova app has no JavaScript running while it is closed, so push is handled natively
 by the plugin. In the common case you write no push code.
+
+A Bearound wake-up push restarts scanning even after a previous `stopScanning()`. It does
+not wake an iOS app the user force-quit.
 
 **Apps that do not use push.** There is nothing to configure and nothing to remove. The
 plugin links Firebase Messaging on Android; without a `google-services.json` it stays
@@ -877,13 +914,12 @@ A push that only wakes the app to scan and sync is not a campaign push and is no
 ## Rich push (images, carousel, video)
 
 A Bearound push can carry images in four formats: one image (`IMAGE`), two side-by-side
-cards (`TWO_IMAGES`), a paged carousel of 2 to 5 cards (`CAROUSEL`) and a video (`PLAY`,
-with a poster image). The **native SDKs draw them**: the plugin adds no JavaScript API and
+cards (`TWO_IMAGES`), a paged carousel of 2 to 5 cards (`CAROUSEL`) and a video (`PLAY`, an MP4 of at most 15 MB, with a poster image). The **native SDKs draw them**: the plugin adds no JavaScript API and
 no rendering of its own. What your app has to do differs per platform.
 
 **On a tap**, a card with an `http(s)` link opens it, a card with a deep link
-(`yourapp://...`) opens it directly, and a card without a link opens your app like a
-regular notification.
+(`yourapp://...`) opens it when your app declares that URL scheme, and a card without a link
+opens your app like a regular notification. Images and videos must be served over `https`.
 
 ### Android: nothing to add
 
@@ -951,7 +987,9 @@ Every option below is a field of `configure()`. The full list is in the [API](#a
 
 ### Scan precision
 
-Controls how hard the radio works and how often detections are uploaded:
+Controls the sync cadence on both platforms. On Android it also sets the radio duty; on iOS
+the radio scans continuously in every precision, and the precision sets the location
+accuracy instead:
 
 ```js
 await cordova.plugins.Bearound.configure({
@@ -960,11 +998,11 @@ await cordova.plugins.Bearound.configure({
 });
 ```
 
-| Mode | Behavior | Use case |
-| --- | --- | --- |
-| `'high'` | Continuous scanning with the most frequent uploads | Maximum detection, higher battery usage |
-| `'medium'` | Continuous scanning at a balanced radio duty, upload every 60 s | Balanced detection and battery |
-| `'low'` | Lowest radio duty, upload every 60 s | Maximum battery savings |
+| Mode | Sync interval | Android radio | iOS location accuracy | Use case |
+| --- | --- | --- | --- | --- |
+| `'high'` | 15 s | Continuous | 10 m | Maximum detection, higher battery usage |
+| `'medium'` | 60 s | Balanced duty | 10 m | Balanced detection and battery |
+| `'low'` | 60 s | Lowest duty | 100 m | Maximum battery savings |
 
 The plugin defaults to `'high'` on both platforms, like the React Native and Flutter
 packages. Active scanning is also gated by beacon presence: outside a beacon zone only the
@@ -972,8 +1010,8 @@ low-power OS scan runs, and the full scan starts on the first detection.
 
 ### Retry queue size
 
-Failed upload batches are persisted on the device and retried, up to a configurable
-limit:
+Failed upload batches are persisted on the device (first in, first out; they survive an app
+kill or a reboot and are cleaned up after 7 days) and retried, up to a configurable limit:
 
 ```js
 await cordova.plugins.Bearound.configure({
@@ -996,9 +1034,8 @@ const Bearound = cordova.plugins.Bearound;
 await Bearound.configure({ businessToken: 'your-business-token' });
 await Bearound.setUserProperties({ internalId: 'user123' });
 
-// More data later:
+// More data later. Fields you omit are kept:
 await Bearound.setUserProperties({
-  internalId: 'user123',
   email: 'user@example.com',
   name: 'John Doe',
   customProperties: { plan: 'premium' },
@@ -1029,6 +1066,10 @@ await cordova.plugins.Bearound.configure({
 
 The interval and the scan window are clamped natively (see the option table in the
 [API](#api)). Pass `periodicReconciliationEnabled: false` to turn the layer off.
+
+What one execution does: after `stopScanning()` it only drains pending data; in Battery
+Saver or Low Power Mode it skips the collection window; and it does not run after a
+force-quit or a force-stop.
 
 ### Bluetooth metadata
 
@@ -1235,8 +1276,9 @@ None of these stops the app.
   drops one event and nothing else. Numbers that cannot be represented in JSON (a
   distance that is not finite) are replaced before they cross the bridge.
 - **It never prompts on its own.** No permission dialog appears unless your code calls
-  one of the request methods. Reading the Bluetooth state on iOS does not raise the
-  Bluetooth prompt, and registering for remote notifications only fetches a token.
+  one of the request methods. The exception is the Bluetooth prompt on iOS,
+  which iOS shows by itself when the SDK first creates its Bluetooth manager. Registering
+  for remote notifications only fetches a token.
 - **It only asks for what the app declares.** On Android a permission that is not in the
   merged manifest is not requested.
 - **Denied means unused.** The plugin has no detection of its own: it forwards to the
@@ -1250,11 +1292,17 @@ None of these stops the app.
 The native SDKs ship lightweight, isolated error telemetry, so integration problems can be
 spotted and fixed quickly. It needs no configuration.
 
-- **What is reported:** errors that originate inside the Bearound SDK, with the error
-  details and a snapshot of the permission state, read without prompting. Errors from your
-  app or from other plugins are never touched.
-- **It never breaks your app:** delivery is fire-and-forget and a failure to report is
-  dropped silently.
+- **What is collected:** the error itself (type, message, stack trace, originating SDK
+  component) plus basic device information (model, manufacturer, OS version, locale,
+  battery level, app state) and a snapshot of the SDK-relevant permissions and system state
+  at that moment. No location coordinates, and no personal data beyond the SDK's stable
+  device id.
+- **What triggers a report:** errors raised inside the SDK, never the host app's. The
+  handler always delegates to the previously installed one, so your own crash reporting is
+  untouched. Reports are rate-limited (20 per hour) and deduplicated (5 minutes per
+  identical error).
+- **Endpoint:** `POST https://ingest.bearound.io/sdk-errors`, authenticated with your
+  business token, fire-and-forget.
 - **Scope:** the telemetry is native. The plugin's JavaScript layer installs no global
   error handler and reports nothing by itself.
 
@@ -1318,6 +1366,7 @@ ignores. For push on Android, add your own `google-services.json` as described a
 
 1. **Are you testing with a physical Bearound beacon on a physical device?** That is the
    supported way to validate the integration. Simulators and emulators have no usable BLE.
+   A generic iBeacon, or a phone simulating one, is not detected by design.
 2. Follow the [recommended setup](#recommended-setup-keep-bluetooth-and-location-on):
    Bluetooth on, Location Services on, permissions granted. Check them with
    `checkPermissions()` and `getBluetoothState()`.
@@ -1335,6 +1384,8 @@ ignores. For push on Android, add your own `google-services.json` as described a
    every upload. See [Getting a business token](#getting-a-business-token).
 2. Check connectivity. Failed batches accumulate (`getPendingBatchCount()`) and are retried.
 3. Watch `addSyncLifecycleListener`: a `completed` event carries `success` and `error`.
+4. `startScanning()` registers the device right away, so it shows up in the Control Hub
+   even before it gets near a beacon.
 
 ### No detection in the background or with the app closed
 
@@ -1344,6 +1395,11 @@ ignores. For push on Android, add your own `google-services.json` as described a
 3. On Android, run the [Background reliability](#background-reliability-android) flow.
 4. On iOS, keep Background App Refresh on. Low Power Mode reduces background wake-ups.
 5. Read `getPersistedLog()` for entries with `state: 'background'` or `'terminated'`.
+
+### High battery usage
+
+1. Use a lower scan precision: see [Scan precision](#scan-precision).
+2. Region gating is automatic: outside a beacon zone only the low-power OS scan runs.
 
 ### Push problems
 
