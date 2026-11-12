@@ -5,5 +5,5 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.Bearound:bearound-android-sdk:v3.18.0'
+    implementation 'com.github.Bearound:bearound-android-sdk:v3.18.1'
 }

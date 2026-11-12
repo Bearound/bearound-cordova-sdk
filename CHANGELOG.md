@@ -3,6 +3,13 @@
 Major and minor versions follow the native Bearound SDK the plugin is built on. A patch
 release may carry changes of the plugin alone.
 
+## 3.18.4
+
+Built on native Android SDK 3.18.1 and native iOS SDK 3.18.0.
+
+- Android: encounters received after the system restarts the app process are uploaded
+  without opening the app (native Android SDK 3.18.1).
+
 ## 3.18.3
 
 Documentation and example app refinements. Same native SDKs (3.18.0).
